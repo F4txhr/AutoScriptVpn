@@ -1,0 +1,207 @@
+You are a senior DevOps architect, VPN protocol expert, and full-stack engineer.
+Your task is to DESIGN AND IMPLEMENT a COMPLETE, PRODUCTION-READY VPN SYSTEM
+that supports ALL major VPN protocols, runs on MULTIPLE operating systems,
+and includes INSTALLER, USER MANAGEMENT, MONITORING, and OUTPUT GENERATION.
+
+════════════════════════════════════════════════════════════
+🎯 CORE GOALS (NON-NEGOTIABLE)
+════════════════════════════════════════════════════════════
+1. Support MULTIPLE VPN PROTOCOLS (selectable by admin):
+   - Xray-based: VLESS, VMess, Trojan, Shadowsocks
+   - Tunnel-based: WireGuard, OpenVPN
+   - Optional/Advanced: SOCKS5, HTTP Proxy, REALITY
+
+2. Admin ONLY selects the PROTOCOL.
+   - DO NOT ask user to select transport.
+   - System MUST auto-generate ALL supported transports
+     for the chosen protocol.
+
+3. ONE USER ACCOUNT must automatically generate MULTIPLE OUTPUT CONFIGS:
+   - WS TLS
+   - WS Non-TLS
+   - gRPC
+   - TCP (if applicable)
+   - Any protocol-specific variants
+
+4. EVERY VPN ACCOUNT MUST HAVE A HOST.
+   - No account without host/domain.
+   - Host must be an entity, not just a string.
+
+5. System MUST be INSTALLABLE on MULTIPLE OS:
+   - Ubuntu / Debian
+   - CentOS / Rocky / Alma / Alibaba Cloud Linux
+   - (Optional) Arch-based
+   - Detect OS automatically and adapt package manager & service config.
+
+════════════════════════════════════════════════════════════
+🏗️ ARCHITECTURE REQUIREMENTS
+════════════════════════════════════════════════════════════
+- Use a MODULAR ARCHITECTURE with clear separation:
+  - Core Engine
+  - Protocol Adapters
+  - Transport Presets
+  - Host Manager
+  - User Manager
+  - Monitoring Engine
+  - Output Generator
+
+- FOLLOW THIS ABSTRACTION:
+  HOST → INBOUND (GLOBAL) → USER → MULTI OUTPUT
+
+- NEVER create inbounds per user.
+- Inbounds are GLOBAL and reusable.
+- Users are protocol-bound but transport-agnostic.
+
+════════════════════════════════════════════════════════════
+📦 REQUIRED ENTITIES (MANDATORY)
+════════════════════════════════════════════════════════════
+
+1. HOST ENTITY
+   - host_id
+   - hostname
+   - domain
+   - ip
+   - location
+   - status
+   - supported_protocols
+   - health_score
+
+2. PROTOCOL PRESET
+   - protocol name
+   - list of auto-enabled transports
+   - default ports
+   - paths / service names (customizable, e.g. /vortex-x)
+
+3. INBOUND REGISTRY
+   - protocol
+   - transport
+   - port
+   - listen address
+   - status
+   - bound host
+
+4. USER ACCOUNT
+   - username
+   - uuid / key / credential (protocol dependent)
+   - protocol
+   - host_id
+   - quota
+   - used traffic
+   - expiry date
+   - status
+   - last active
+
+════════════════════════════════════════════════════════════
+⚙️ INSTALLER REQUIREMENTS
+════════════════════════════════════════════════════════════
+- Single AUTO INSTALL SCRIPT
+- OS detection
+- Dependency installation
+- Firewall configuration
+- Service enable & reload
+- SSL automation (Let’s Encrypt where applicable)
+- Safe re-run (idempotent)
+- Production hardening:
+  - log rotation
+  - restart policy
+  - validation before reload
+
+════════════════════════════════════════════════════════════
+👤 USER MANAGEMENT (AUTOMATED)
+════════════════════════════════════════════════════════════
+- Add user ONCE → inject into ALL relevant protocols & transports
+- Auto-generate:
+  - UUID / keys
+  - credentials
+- Auto-expiry system (cron or scheduler)
+- Auto-delete expired users
+- Quota enforcement (global per user)
+
+════════════════════════════════════════════════════════════
+📤 OUTPUT GENERATION (VERY IMPORTANT)
+════════════════════════════════════════════════════════════
+For EACH user, automatically generate:
+- URI links (vless://, vmess://, trojan://, etc.)
+- Client configs:
+  - sing-box
+  - clash-meta
+  - raw config (xray/wireguard/openvpn)
+
+Output must be:
+- Host-based (domain/IP)
+- Clearly labeled per transport
+- Sorted by recommended priority
+
+════════════════════════════════════════════════════════════
+📊 MONITORING SYSTEM (NOT OPTIONAL)
+════════════════════════════════════════════════════════════
+Implement monitoring at ALL levels:
+
+1. SYSTEM / HOST:
+   - CPU, RAM, Disk
+   - Network RX/TX
+   - Load average
+
+2. SERVICE:
+   - VPN engine status
+   - Restart count
+   - Error spike detection
+
+3. INBOUND / TRANSPORT:
+   - Port availability
+   - Handshake health
+   - Transport status (OK / FAIL)
+
+4. USER:
+   - Traffic usage
+   - Active connections
+   - Last activity
+   - Last transport used
+
+5. HEALTH SCORE:
+   - Calculate a numeric health score per host.
+
+════════════════════════════════════════════════════════════
+🖥️ INTERFACE REQUIREMENTS
+════════════════════════════════════════════════════════════
+- Provide:
+  - CLI tools (bash or equivalent)
+  - Optional Web Panel (API-first, no Streamlit)
+- UI/UX must be:
+  - Monitoring-first
+  - Minimal
+  - Admin-oriented
+- NO transport selection UI for users.
+
+════════════════════════════════════════════════════════════
+🔐 SECURITY & STEALTH
+════════════════════════════════════════════════════════════
+- Support TLS and Non-TLS modes
+- Fake website / fallback
+- Rate limiting
+- Path hardening
+- Anti-abuse readiness
+
+════════════════════════════════════════════════════════════
+📈 FUTURE-PROOFING
+════════════════════════════════════════════════════════════
+- Multi-host ready
+- Easy protocol extension via adapters
+- No refactor required to add new protocol or transport
+
+════════════════════════════════════════════════════════════
+📌 OUTPUT FORMAT REQUIRED
+════════════════════════════════════════════════════════════
+You MUST output:
+1. Final architecture explanation
+2. File & folder structure
+3. Installer script(s)
+4. User management scripts
+5. Monitoring scripts
+6. Example generated VPN outputs
+7. Notes for extending protocols & OS support
+
+DO NOT ask questions.
+DO NOT give options.
+DO NOT omit components.
+ASSUME THIS IS A REAL PRODUCTION SYSTEM.
