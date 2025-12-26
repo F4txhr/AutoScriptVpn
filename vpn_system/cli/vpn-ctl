@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import subprocess
+import sys
+
+# Define the absolute path for the application library
+APP_BASE_PATH = "/usr/local/lib/vpn_system"
+
+# Ensure the script can find the other modules from the library path
+sys.path.insert(0, APP_BASE_PATH)
+
+def run_script(script_path: str, args: list):
+    """Helper function to run another Python script from the APP_BASE_PATH."""
+    script_full_path = os.path.join(APP_BASE_PATH, script_path)
+    command = [sys.executable, script_full_path] + args
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError:
+        print(f"Error executing script: {script_path}", file=sys.stderr)
+        sys.exit(1)
+    except FileNotFoundError:
+        print(f"Script not found: {script_full_path}", file=sys.stderr)
+        sys.exit(1)
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="VPN Control (vpn-ctl): A command-line tool to manage the VPN system.",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
+
+    # --- User Management ---
+    user_parser = subparsers.add_parser("user", help="Manage users")
+    user_subparsers = user_parser.add_subparsers(dest="user_command", required=True)
+
+    # `user add` command
+    user_add_parser = user_subparsers.add_parser("add", help="Add a new user")
+    user_add_parser.add_argument("-u", "--username", required=True, help="Username for the new user")
+    user_add_parser.add_argument("-d", "--domain", required=True, help="The domain/host for the user")
+    user_add_parser.add_argument("-p", "--protocol", required=True, choices=['vless', 'wireguard'], help="The VPN protocol for the user")
+
+    # --- Monitoring ---
+    monitor_parser = subparsers.add_parser("monitor", help="Monitor the system and services")
+    monitor_parser.add_argument("--json", action="store_true", help="Output status in JSON format")
+
+
+    args, unknown_args = parser.parse_known_args()
+
+    if args.command == "user":
+        if args.user_command == "add":
+            if args.protocol == 'vless':
+                script_args = ['add', '-u', args.username, '-d', args.domain]
+                run_script('user_management/manage_vless_user.py', script_args)
+            elif args.protocol == 'wireguard':
+                script_args = ['add', '-u', args.username, '-d', args.domain]
+                run_script('user_management/manage_wireguard_user.py', script_args)
+
+    elif args.command == "monitor":
+        script_args = []
+        if args.json:
+            script_args.append('--json')
+        run_script('monitoring/health_check.py', script_args)
+
+if __name__ == "__main__":
+    main()
