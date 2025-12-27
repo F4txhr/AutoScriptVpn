@@ -55,11 +55,11 @@ install_deps() {
             apt-get update -y
             apt-get install -y python3 python3-pip python3-venv python3-psutil \
                 nginx certbot curl wget rsync socat cron jq vnstat fail2ban ufw
-            ;;;
+            ;;
         centos|almalinux|rocky)
             dnf install -y epel-release
             dnf install -y python3 python3-pip nginx certbot curl wget rsync socat cronie jq vnstat fail2ban ufw
-            ;;;
+            ;;
         *)
             log_error "Distribution $OS not supported yet."
             ;;
