@@ -40,7 +40,7 @@ install_dependencies() {
             log_info "Using apt-get for Debian/Ubuntu-based system."
             export DEBIAN_FRONTEND=noninteractive
             apt-get update -y
-            apt-get install -y python3 python3-pip python3-venv coreutils curl wget socat iptables-persistent net-tools
+            apt-get install -y python3 python3-pip python3-venv coreutils curl wget socat iptables-persistent net-tools rsync
             ;;
         *rhel*|*centos*|*fedora*|*almalinux*|*rocky*|*alinux*)
             log_info "Using dnf/yum for RHEL/CentOS/Alibaba-based system."
@@ -51,7 +51,7 @@ install_dependencies() {
                 PKG_MANAGER="yum"
             fi
             $PKG_MANAGER install -y epel-release || log_warn "Could not install EPEL release. Some packages may be unavailable."
-            $PKG_MANAGER install -y python3 python3-pip python3-devel coreutils curl wget socat iptables-services net-tools
+            $PKG_MANAGER install -y python3 python3-pip python3-devel coreutils curl wget socat iptables-services net-tools rsync
             ;;
         *)
             log_error "Unsupported operating system: $OS. This script supports Debian, Ubuntu, CentOS, RHEL, Rocky, AlmaLinux, and Alibaba Cloud Linux."
