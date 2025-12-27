@@ -51,6 +51,12 @@ install_dependencies() {
                 PKG_MANAGER="yum"
             fi
             $PKG_MANAGER install -y epel-release || log_warn "Could not install EPEL release. Some packages may be unavailable."
+            
+            # Fix broken EPEL repo URL if present (common in some cloud images)
+            if [ -f /etc/yum.repos.d/epel.repo ]; then
+                sed -i 's/download.example\/pub/mirrors.aliyun.com/g' /etc/yum.repos.d/epel.repo
+            fi
+
             $PKG_MANAGER install -y python3 python3-pip python3-devel coreutils curl wget socat iptables-services net-tools rsync
             ;;
         *)
