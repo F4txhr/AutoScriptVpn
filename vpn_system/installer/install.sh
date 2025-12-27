@@ -496,7 +496,12 @@ main() {
                 # We use --standalone to be safe and independent of nginx config state
                 systemctl stop nginx || true
                 
-                certbot certonly --standalone --preferred-challenges http --agree-tos --email admin@"$DOMAIN_NAME" -d "$DOMAIN_NAME" --non-interactive
+                # Use command if available, otherwise python module
+                if command -v certbot &> /dev/null; then
+                    certbot certonly --standalone --preferred-challenges http --agree-tos --email admin@"$DOMAIN_NAME" -d "$DOMAIN_NAME" --non-interactive
+                else
+                    python3 -m certbot certonly --standalone --preferred-challenges http --agree-tos --email admin@"$DOMAIN_NAME" -d "$DOMAIN_NAME" --non-interactive
+                fi
                 
                 if [ $? -eq 0 ]; then
                     log_info "SSL Certificate obtained successfully!"
