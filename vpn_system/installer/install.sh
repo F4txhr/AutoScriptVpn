@@ -273,7 +273,7 @@ install_xray_core() {
         for URL in "${MIRRORS[@]}"; do
             log_info "Attempting to download installer from: $URL"
             # Added timeout and removed -s to see progress
-            if curl -L --connect-timeout 10 --max-time 60 -o install-xray.sh "$URL"; then
+            if curl -4 -L --connect-timeout 10 --max-time 60 -o install-xray.sh "$URL"; then
                 if [ -s install-xray.sh ] && ! head -n 1 install-xray.sh | grep -q "^<"; then
                     log_info "Download successful!"
                     SUCCESS=true
@@ -460,7 +460,7 @@ main() {
             log_info "Verifying DNS for $DOMAIN_NAME..."
             
             # Get Public IP
-            PUBLIC_IP=$(curl -s --max-time 5 https://api.ipify.org)
+            PUBLIC_IP=$(curl -4 -s --max-time 5 https://api.ipify.org)
             # Get Domain IP
             DOMAIN_IP=$(getent hosts "$DOMAIN_NAME" | awk '{ print $1 }' | head -n 1)
             
