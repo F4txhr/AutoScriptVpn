@@ -36,7 +36,7 @@ def get_wg_stats():
     """Parses wireguard transfer stats."""
     stats = {}
     try:
-        output = subprocess.check_output(["wg", "show", "wg0", "transfer"], text=True)
+        output = subprocess.check_output(["wg", "show", "wg0", "transfer"], universal_newlines=True)
         for line in output.splitlines():
             parts = line.split()
             if len(parts) >= 3:

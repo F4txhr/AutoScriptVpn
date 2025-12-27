@@ -13,7 +13,7 @@ class WireguardAdapter:
     def _run_command(self, command: str) -> str:
         """Runs a shell command and returns its output."""
         try:
-            result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+            result = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
             return result.stdout.strip()
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Command '{command}' failed: {e.stderr.strip()}")

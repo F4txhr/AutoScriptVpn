@@ -48,8 +48,9 @@ def get_service_status(service_name: str) -> str:
         # We use `is-active` for a simple 'active' or 'inactive'/'failed' state
         result = subprocess.run(
             ["systemctl", "is-active", service_name],
-            capture_output=True,
-            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
             check=False # Don't raise exception for non-zero exit codes
         )
         status = result.stdout.strip()
