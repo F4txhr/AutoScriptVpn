@@ -44,8 +44,8 @@ class ShadowsocksAdapter:
         password = str(uuid.uuid4())
         
         user_object = {
-            "password": password,
-            "email": username
+            "email": username,
+            "password": password
         }
         
         inbound_found = False

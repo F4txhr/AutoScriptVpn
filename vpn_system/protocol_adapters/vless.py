@@ -102,6 +102,7 @@ class VlessAdapter:
         Adds a user to a specific VLESS inbound and returns the user object.
         """
         user_uuid = str(uuid.uuid4())
+        # According to Xray docs, 'encryption' should NOT be here on the server side.
         user_object = {
             "id": user_uuid,
             "email": username,

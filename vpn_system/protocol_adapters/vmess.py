@@ -58,8 +58,8 @@ class VmessAdapter:
         # VMess client structure
         user_object = {
             "id": user_uuid,
-            "email": username,
-            "alterId": 0
+            "alterId": 0,
+            "email": username
         }
         
         inbound_found = False
