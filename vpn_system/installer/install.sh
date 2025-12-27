@@ -266,6 +266,7 @@ install_menu() {
     cp ./vpn_system/menu/menu.sh /usr/local/lib/vpn_system/menu/menu.sh
     chmod +x /usr/local/lib/vpn_system/menu/menu.sh
     ln -sf /usr/local/lib/vpn_system/menu/menu.sh /usr/local/bin/menu
+    ln -sf /usr/local/lib/vpn_system/menu/menu.sh /usr/bin/menu
     log_info "Menu installed. Type 'menu' to access."
 }
 
@@ -434,6 +435,9 @@ install_vpn_system() {
         log_error "Failed to make vpn-ctl executable."
     fi
 
+    # Create symlink in /usr/bin/ for compatibility
+    ln -sf "$BIN_INSTALL_PATH" /usr/bin/vpn-ctl
+
     log_info "VPN system installed successfully."
     log_info "CLI tool is available at: $BIN_INSTALL_PATH"
 }
@@ -441,6 +445,9 @@ install_vpn_system() {
 
 # --- Main execution ---
 main() {
+    # Accept domain as first argument
+    ARG_DOMAIN=$1
+
     if [ "$(id -u)" -ne 0 ]; then
         log_error "This script must be run as root. Please use sudo."
     fi
@@ -465,13 +472,20 @@ main() {
     echo "--------------------------------------------------------"
     echo "  SYSTEM INITIALIZATION & DOMAIN SETUP"
     echo "--------------------------------------------------------"
-    read -p "Do you want to configure the domain and SSL now? [y/n]: " DO_INIT
     
-    if [[ "$DO_INIT" =~ ^[Yy]$ ]]; then
-        read -p "Enter your Domain/Host (e.g., vpn.example.com): " DOMAIN_NAME
-        
-        if [ -n "$DOMAIN_NAME" ]; then
-            log_info "Verifying DNS for $DOMAIN_NAME..."
+    DOMAIN_NAME=""
+    if [ -n "$ARG_DOMAIN" ]; then
+        DOMAIN_NAME="$ARG_DOMAIN"
+        log_info "Using domain from argument: $DOMAIN_NAME"
+    else
+        read -p "Enter your Domain/Host (or leave empty to skip): " INPUT_VAL
+        if [ -n "$INPUT_VAL" ]; then
+            DOMAIN_NAME="$INPUT_VAL"
+        fi
+    fi
+    
+    if [ -n "$DOMAIN_NAME" ]; then
+        log_info "Verifying DNS for $DOMAIN_NAME..."
             
             # Get Public IP
             PUBLIC_IP=$(curl -4 -s --max-time 5 https://api.ipify.org)
@@ -556,4 +570,4 @@ main() {
 }
 
 # Run the main function
-main
+main "$@"
