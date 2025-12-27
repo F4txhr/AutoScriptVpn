@@ -566,8 +566,16 @@ main() {
     setup_cron
 
     # Final Permission Fix for Xray (Nobody User)
-    log_info "Applying final permission fixes for Xray..."
+    log_info "Applying recursive permission fixes for Xray & SSL..."
     mkdir -p /usr/local/etc/xray
+    
+    # Traverse-able parent directories
+    chmod 755 /usr/local/etc
+    chmod 755 /etc/letsencrypt
+    chmod 755 /etc/letsencrypt/live
+    chmod 755 /etc/letsencrypt/archive
+    
+    # Xray Specific
     chown -R nobody:nobody /usr/local/etc/xray
     chmod 755 /usr/local/etc/xray
     [ -f /usr/local/etc/xray/config.json ] && chmod 644 /usr/local/etc/xray/config.json
