@@ -468,9 +468,10 @@ setup_nginx_config() {
     local DOMAIN=$1
     log_info "Configuring Nginx for $DOMAIN..."
     
-    # Remove default configs to avoid "conflicting server name"
+    # Remove default and ANY existing config that contains this domain to prevent conflicts
     rm -f /etc/nginx/sites-enabled/default
     rm -f /etc/nginx/conf.d/default.conf
+    grep -lR "$DOMAIN" /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ 2>/dev/null | xargs rm -f
     
     # Use standard Ubuntu/Debian paths
     CONF_PATH="/etc/nginx/conf.d/vpn.conf"
