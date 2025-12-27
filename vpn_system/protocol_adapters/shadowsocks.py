@@ -33,12 +33,11 @@ class ShadowsocksAdapter:
         inbound = {
             "tag": inbound_tag,
             "port": port,
-            "listen": "0.0.0.0",
+            "listen": "::",
             "protocol": "shadowsocks",
             "settings": {
                 "clients": [],
-                "network": "tcp,udp",
-                "method": method
+                "network": "tcp,udp"
             }
         }
         return inbound
@@ -49,7 +48,8 @@ class ShadowsocksAdapter:
         
         user_object = {
             "email": username,
-            "password": password
+            "password": password,
+            "method": "aes-256-gcm"
         }
         
         inbound_found = False
