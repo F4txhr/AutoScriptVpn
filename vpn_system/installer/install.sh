@@ -88,6 +88,14 @@ install_certbot() {
         return
     fi
 
+    # DEBUG: Find out what python pip3 is using
+    LOG_PIP_PATH=$(command -v pip3)
+    log_info "DEBUG: pip3 path: $LOG_PIP_PATH"
+    if [ -f "$LOG_PIP_PATH" ]; then
+        log_info "DEBUG: pip3 shebang: $(head -n 1 "$LOG_PIP_PATH")"
+    fi
+    log_info "DEBUG: pip3 version: $(pip3 --version)"
+
     case "$ID_LIKE" in
         *debian*|*ubuntu*)
             apt-get install -y certbot
