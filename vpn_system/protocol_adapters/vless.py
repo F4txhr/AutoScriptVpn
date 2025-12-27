@@ -105,6 +105,7 @@ class VlessAdapter:
         user_object = {
             "id": user_uuid,
             "email": username,
+            "encryption": "none",
             "flow": ""
         }
 
