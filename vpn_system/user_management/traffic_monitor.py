@@ -90,10 +90,10 @@ def main():
         vless_adapter._save_config()
         db['users'] = active_users
         save_db(db)
-        # Reload services
+        # Restart services
         if shutil.which("systemctl"):
-            subprocess.run(["systemctl", "reload", "xray"], check=False)
-            subprocess.run(["systemctl", "reload", "wg-quick@wg0"], check=False)
+            subprocess.run(["systemctl", "restart", "xray"], check=False)
+            subprocess.run(["systemctl", "restart", "wg-quick@wg0"], check=False)
 
 if __name__ == "__main__":
     main()

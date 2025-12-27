@@ -25,13 +25,13 @@ def save_db(data):
     with open(DB_PATH, 'w') as f:
         json.dump(data, f, indent=4)
 
-def reload_service(service_name):
+def restart_service(service_name):
     if shutil.which("systemctl"):
         try:
-            subprocess.run(["systemctl", "reload", service_name], check=True)
-            print(f"Reloaded {service_name}")
+            subprocess.run(["systemctl", "restart", service_name], check=True)
+            print(f"Restarted {service_name}")
         except Exception as e:
-            print(f"Failed to reload {service_name}: {e}")
+            print(f"Failed to restart {service_name}: {e}")
 
 def main():
     print("--- Running Auto-Expiry Check ---")
@@ -89,11 +89,11 @@ def main():
     # Save changes
     if vless_changes:
         vless_adapter._save_config()
-        reload_service("xray")
+        restart_service("xray")
 
     # WireGuard adapter saves immediately on remove_peer, just reload
     if wg_changes:
-        reload_service("wg-quick@wg0")
+        restart_service("wg-quick@wg0")
 
     db['users'] = active_users
     save_db(db)

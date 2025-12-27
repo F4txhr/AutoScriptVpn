@@ -241,7 +241,7 @@ optimize_system() {
     notifempty
     create 640 nobody nobody
     postrotate
-        systemctl reload xray > /dev/null 2>/dev/null || true
+        systemctl restart xray > /dev/null 2>/dev/null || true
     endscript
 }
 EOF
