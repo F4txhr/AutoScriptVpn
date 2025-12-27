@@ -646,6 +646,7 @@ main() {
                     
                     if [ $? -eq 0 ]; then
                         log_info "System Initialized Successfully!"
+                        systemctl restart xray || true
                         setup_nginx_config "$DOMAIN_NAME"
                     else
                         log_error "Initialization failed."
