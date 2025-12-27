@@ -40,7 +40,7 @@ install_dependencies() {
             log_info "Using apt-get for Debian/Ubuntu-based system."
             export DEBIAN_FRONTEND=noninteractive
             apt-get update -y
-            apt-get install -y python3 python3-pip python3-venv coreutils curl wget socat iptables-persistent net-tools rsync
+            apt-get install -y python3 python3-pip python3-venv python3-psutil coreutils curl wget socat iptables-persistent net-tools rsync cron
             ;;
         *rhel*|*centos*|*fedora*|*almalinux*|*rocky*|*alinux*)
             log_info "Using dnf/yum for RHEL/CentOS/Alibaba-based system."
@@ -431,6 +431,38 @@ install_vpn_system() {
 }
 
 
+# --- Environment Check ---
+check_environment() {
+    log_info "Checking system readiness..."
+    
+    # 1. Check Internet
+    if ! curl -s --connect-timeout 5 https://google.com > /dev/null; then
+        log_error "No internet connection or DNS issues. Installation cannot proceed."
+    fi
+
+    # 2. Check Disk Space (Min 500MB)
+    FREE_SPACE=$(df -m / | awk 'NR==2 {print $4}')
+    if [ "$FREE_SPACE" -lt 500 ]; then
+        log_warn "Low disk space: ${FREE_SPACE}MB. Installation might fail."
+    fi
+
+    # 3. Check for Port Conflicts (80/443)
+    if command -v netstat &> /dev/null; then
+        PORT_80=$(netstat -tuln | grep -c ":80 ")
+        if [ "$PORT_80" -gt 0 ]; then
+            log_warn "Port 80 is already in use. This might interfere with SSL (Certbot) setup."
+        fi
+    fi
+
+    # 4. Detect PRoot/Termux
+    if [ -d "/data/data/com.termux" ] || [ -n "$PROOT_TMPDIR" ]; then
+        log_warn "Running inside Termux/PRoot. WireGuard and OpenVPN will be disabled."
+        IS_PROOT=true
+    else
+        IS_PROOT=false
+    fi
+}
+
 # --- Main execution ---
 main() {
     # Accept domain as first argument
@@ -440,14 +472,21 @@ main() {
         log_error "This script must be run as root. Please use sudo."
     fi
 
+    check_environment
     detect_os
     install_dependencies
     install_certbot
     setup_network_firewall
     install_nginx
     install_xray_core
-    install_wireguard
-    install_openvpn
+    
+    if [ "$IS_PROOT" = false ]; then
+        install_wireguard
+        install_openvpn
+    else
+        log_info "Skipping WireGuard and OpenVPN installation due to PRoot environment."
+    fi
+    
     optimize_system
     install_vpn_system
     install_menu
@@ -518,15 +557,18 @@ main() {
                 if [ $? -eq 0 ]; then
                     log_info "SSL Certificate obtained successfully!"
                     
-                    # Link certs to where Xray adapters expect them
-                    # Adapters expect: /etc/ssl/certs/{domain}/fullchain.pem
+                    # Ensure the destination directory exists
                     mkdir -p "/etc/ssl/certs/$DOMAIN_NAME"
                     
-                    # Certbot stores in /etc/letsencrypt/live/$DOMAIN_NAME/
-                    ln -sf "/etc/letsencrypt/live/$DOMAIN_NAME/fullchain.pem" "/etc/ssl/certs/$DOMAIN_NAME/fullchain.pem"
-                    ln -sf "/etc/letsencrypt/live/$DOMAIN_NAME/privkey.pem" "/etc/ssl/certs/$DOMAIN_NAME/privkey.pem"
-                    
-                    log_info "Certificates linked to system paths."
+                    # Use absolute paths for symlinking
+                    LE_PATH="/etc/letsencrypt/live/$DOMAIN_NAME"
+                    if [ -f "$LE_PATH/fullchain.pem" ]; then
+                        ln -sf "$LE_PATH/fullchain.pem" "/etc/ssl/certs/$DOMAIN_NAME/fullchain.pem"
+                        ln -sf "$LE_PATH/privkey.pem" "/etc/ssl/certs/$DOMAIN_NAME/privkey.pem"
+                        log_info "Certificates linked successfully to /etc/ssl/certs/$DOMAIN_NAME/"
+                    else
+                        log_error "Certbot reported success but certificates not found in $LE_PATH"
+                    fi
                     
                     # Restart Nginx
                     systemctl start nginx || true

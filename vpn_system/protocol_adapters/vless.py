@@ -163,6 +163,70 @@ class VlessAdapter:
 
         return f"vless://{user_id}@{address}:{port}?{'&'.join(params)}#{host['hostname']}-{transport}"
 
+    def get_client_json(self, user: Dict, inbound: Dict, host: Dict) -> Dict[str, Any]:
+        """
+        Generates the full JSON configuration for clients like HTTP Custom.
+        """
+        transport = inbound['streamSettings']['network']
+        security = inbound['streamSettings'].get('security', 'none')
+        
+        config = {
+            "inbounds": [],
+            "outbounds": [
+                {
+                    "mux": {"enabled": False},
+                    "protocol": "vless",
+                    "settings": {
+                        "vnext": [
+                            {
+                                "address": host['domain'],
+                                "port": inbound['port'],
+                                "users": [
+                                    {
+                                        "id": user['id'],
+                                        "level": 8,
+                                        "encryption": "none"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "streamSettings": {
+                        "network": transport,
+                        "security": security,
+                        "tlsSettings": {
+                            "allowInsecure": True,
+                            "serverName": host['domain']
+                        }
+                    },
+                    "tag": "VLESS"
+                }
+            ],
+            "policy": {
+                "levels": {
+                    "8": {
+                        "connIdle": 300,
+                        "downlinkOnly": 1,
+                        "handshake": 4,
+                        "uplinkOnly": 1
+                    }
+                }
+            }
+        }
+
+        if transport == "ws":
+            config["outbounds"][0]["streamSettings"]["wsSettings"] = {
+                "headers": {},
+                "path": inbound['streamSettings']['wsSettings']['path']
+            }
+        elif transport == "grpc":
+            config["outbounds"][0]["streamSettings"]["grpcSettings"] = {
+                "serviceName": inbound['streamSettings']['grpcSettings']['serviceName'],
+                "multiMode": True
+            }
+
+        return config
+
 if __name__ == '__main__':
     # Example usage (for testing)
     adapter = VlessAdapter(config_path="./config.json")

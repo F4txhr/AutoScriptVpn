@@ -88,6 +88,55 @@ class TrojanAdapter:
             
         query = "&".join(params)
         return f"trojan://{password}@{address}:{port}?{query}#{host['hostname']}-{transport}"
+
+    def get_client_json(self, user: Dict, inbound: Dict, host: Dict) -> Dict[str, Any]:
+        transport = inbound['streamSettings']['network']
+        security = "tls"
+        
+        config = {
+            "inbounds": [],
+            "outbounds": [
+                {
+                    "mux": {"enabled": False},
+                    "protocol": "trojan",
+                    "settings": {
+                        "servers": [
+                            {
+                                "address": host['domain'],
+                                "port": inbound['port'],
+                                "password": user['password'],
+                                "level": 8
+                            }
+                        ]
+                    },
+                    "streamSettings": {
+                        "network": transport,
+                        "security": security,
+                        "tlsSettings": {
+                            "allowInsecure": True,
+                            "serverName": host['domain']
+                        }
+                    },
+                    "tag": "TROJAN"
+                }
+            ],
+            "policy": {
+                "levels": {"8": {"connIdle": 300, "downlinkOnly": 1, "handshake": 4, "uplinkOnly": 1}}
+            }
+        }
+
+        if transport == "ws":
+            config["outbounds"][0]["streamSettings"]["wsSettings"] = {
+                "headers": {},
+                "path": "/Vortex-x"
+            }
+        elif transport == "grpc":
+            config["outbounds"][0]["streamSettings"]["grpcSettings"] = {
+                "serviceName": "Vortex-x",
+                "multiMode": True
+            }
+
+        return config
     def remove_user(self, username: str) -> bool:
         removed = False
         for inbound in self.config.get("inbounds", []):

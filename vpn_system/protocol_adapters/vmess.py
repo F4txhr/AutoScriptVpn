@@ -100,6 +100,61 @@ class VmessAdapter:
         json_str = json.dumps(vmess_json)
         encoded = base64.b64encode(json_str.encode('utf-8')).decode('utf-8')
         return f"vmess://{encoded}"
+
+    def get_client_json(self, user: Dict, inbound: Dict, host: Dict) -> Dict[str, Any]:
+        transport = inbound['streamSettings']['network']
+        security = inbound['streamSettings'].get('security', 'none')
+        
+        config = {
+            "inbounds": [],
+            "outbounds": [
+                {
+                    "mux": {"enabled": False},
+                    "protocol": "vmess",
+                    "settings": {
+                        "vnext": [
+                            {
+                                "address": host['domain'],
+                                "port": inbound['port'],
+                                "users": [
+                                    {
+                                        "id": user['id'],
+                                        "alterId": 0,
+                                        "level": 8,
+                                        "security": "auto"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "streamSettings": {
+                        "network": transport,
+                        "security": security,
+                        "tlsSettings": {
+                            "allowInsecure": True,
+                            "serverName": host['domain']
+                        }
+                    },
+                    "tag": "VMESS"
+                }
+            ],
+            "policy": {
+                "levels": {"8": {"connIdle": 300, "downlinkOnly": 1, "handshake": 4, "uplinkOnly": 1}}
+            }
+        }
+
+        if transport == "ws":
+            config["outbounds"][0]["streamSettings"]["wsSettings"] = {
+                "headers": {},
+                "path": "/Vortex-x"
+            }
+        elif transport == "grpc":
+            config["outbounds"][0]["streamSettings"]["grpcSettings"] = {
+                "serviceName": "Vortex-x",
+                "multiMode": True
+            }
+
+        return config
     def remove_user(self, username: str) -> bool:
         removed = False
         for inbound in self.config.get("inbounds", []):
