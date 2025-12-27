@@ -71,10 +71,6 @@ class OutputGenerator:
                     "uri": uri
                 }
                 
-                # Add JSON config for VLESS, VMess, and Trojan
-                if protocol in ['vless', 'vmess', 'trojan']:
-                    res["json_client"] = adapter.get_client_json(user_obj, ib_mock, host)
-                
                 outputs.append(res)
 
         elif protocol == 'wireguard':

@@ -147,7 +147,7 @@ class VlessAdapter:
         port = inbound['port']
         transport = inbound['streamSettings']['network']
 
-        params = [f"type={transport}"]
+        params = [f"type={transport}", "encryption=none"]
 
         if transport == "ws":
             path = inbound['streamSettings']['wsSettings']['path'].replace('/', '%2F')
