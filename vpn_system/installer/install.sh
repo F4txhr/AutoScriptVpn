@@ -60,7 +60,10 @@ install_deps() {
             dnf install -y epel-release
             dnf makecache
             # Try installing core packages. split ufw/firewalld logic
-            dnf install -y python3 python3-pip nginx wget rsync socat cronie jq vnstat fail2ban firewalld
+            dnf install -y python3 python3-pip nginx wget rsync socat cronie jq firewalld
+            
+            # Optional packages (might be missing on some cloud repos)
+            dnf install -y vnstat fail2ban || log_warn "Optional tools (vnstat/fail2ban) not found. Skipping."
             
             # Try install certbot, fallback to pip if missing
             if ! dnf install -y certbot; then
@@ -142,7 +145,17 @@ setup_cron() {
 0 0 * * * root python3 $VORTEX_LIB/scripts/ssl_manager.py renew
 EOF
     chmod 644 "$CRON_FILE"
-    systemctl restart cron || systemctl restart cronie || systemctl restart crond
+    
+    # Try restarting cron services quietly
+    if systemctl restart crond &>/dev/null; then
+        log_success "Cron service (crond) restarted."
+    elif systemctl restart cron &>/dev/null; then
+        log_success "Cron service (cron) restarted."
+    elif systemctl restart cronie &>/dev/null; then
+         log_success "Cron service (cronie) restarted."
+    else
+        log_warn "Could not restart cron service automatically. Please check 'crond' status."
+    fi
 }
 
 main() {
