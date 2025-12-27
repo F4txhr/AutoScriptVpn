@@ -18,8 +18,8 @@ check_root() {
 show_header() {
     clear
     echo -e "${BLUE}======================================${NC}"
-    echo -e "${BLUE}    AUTOSCRIPT VPN MANAGEMENT MENU    ${NC}"
-    echo -e "${BLUE}======================================${NC}"
+    echo -e "           Vortex-x Vpn               ${NC}"
+    echo -e "======================================${NC}"
 }
 
 wait_enter() {
@@ -31,14 +31,16 @@ menu() {
     check_root
     while true; do
         show_header
+        # Show monitor directly on main menu
+        $VPN_CTL monitor
+        echo -e "${BLUE}======================================${NC}"
         echo -e "1. Initialize System (Set Domain)"
         echo -e "2. Create VPN Account"
         echo -e "3. Show User Config"
-        echo -e "4. Monitor System Health"
-        echo -e "5. Check/Run Auto-Expiry"
-        echo -e "6. Exit"
+        echo -e "4. Check/Run Auto-Expiry"
+        echo -e "5. Exit"
         echo -e "${BLUE}======================================${NC}"
-        read -p "Select Option [1-6]: " option
+        read -p "Select Option [1-5]: " option
 
         case $option in
             1)
@@ -93,15 +95,11 @@ menu() {
                 wait_enter
                 ;;
             4)
-                $VPN_CTL monitor
-                wait_enter
-                ;;
-            5)
                 echo "Running expiry monitor manually..."
                 python3 /usr/local/lib/vpn_system/user_management/expiry_monitor.py
                 wait_enter
                 ;;
-            6)
+            5)
                 echo "Exiting..."
                 exit 0
                 ;;

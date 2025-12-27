@@ -95,18 +95,18 @@ def generate_report(metrics: Dict, services_status: Dict, health_score: float) -
     report.append("="*30)
     report.append(f"  System Health: {health_score}/100")
     report.append("="*30)
-    report.append("\\n--- Host Metrics ---")
+    report.append("\n--- Host Metrics ---")
     report.append(f"  CPU Usage: {metrics['cpu']['usage_percent']}%")
     report.append(f"  CPU Load (1, 5, 15 min): {metrics['cpu']['load_avg']}")
     report.append(f"  RAM Usage: {metrics['ram']['usage_percent']}% ({metrics['ram']['used_gb']} GB / {metrics['ram']['total_gb']} GB)")
     report.append(f"  Disk Usage (/): {metrics['disk']['usage_percent']}% ({metrics['disk']['used_gb']} GB / {metrics['disk']['total_gb']} GB)")
 
-    report.append("\\n--- VPN Service Status ---")
+    report.append("\n--- VPN Service Status ---")
     for service, status in services_status.items():
         report.append(f"  {service}: {status}")
 
-    report.append("\\n" + "="*30)
-    return "\\n".join(report)
+    report.append("\n" + "="*30)
+    return "\n".join(report)
 
 def main():
     """Main function to run the health check."""
