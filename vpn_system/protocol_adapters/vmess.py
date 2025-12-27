@@ -20,6 +20,10 @@ class VmessAdapter:
                 json.dump(self.config, tf, indent=4)
                 temp_name = tf.name
             os.replace(temp_name, self.config_path)
+            # Fix ownership so Xray service (nobody) can read it
+            import subprocess
+            subprocess.run(["chown", "nobody:nobody", self.config_path], check=False)
+            os.chmod(self.config_path, 0o644)
         except Exception as e:
             raise RuntimeError(f"Failed to save config: {e}")
 

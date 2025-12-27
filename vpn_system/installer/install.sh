@@ -559,6 +559,13 @@ main() {
     install_menu
     setup_cron
 
+    # Final Permission Fix for Xray (Nobody User)
+    log_info "Applying final permission fixes for Xray..."
+    mkdir -p /usr/local/etc/xray
+    chown -R nobody:nobody /usr/local/etc/xray
+    chmod 755 /usr/local/etc/xray
+    [ -f /usr/local/etc/xray/config.json ] && chmod 644 /usr/local/etc/xray/config.json
+
     log_info "VPN system installation completed successfully."
     
     # --- Auto Initialization ---

@@ -52,6 +52,16 @@ class VlessAdapter:
             
             # Atomic replacement
             os.replace(temp_name, self.config_path)
+            
+            # Fix ownership so Xray service (nobody) can read it
+            try:
+                import shutil
+                # Using subprocess for chown as it's more reliable for system users
+                import subprocess
+                subprocess.run(["chown", "nobody:nobody", self.config_path], check=False)
+                os.chmod(self.config_path, 0o644)
+            except:
+                pass
         except (IOError, OSError) as e:
             if 'temp_name' in locals() and os.path.exists(temp_name):
                 os.remove(temp_name)
