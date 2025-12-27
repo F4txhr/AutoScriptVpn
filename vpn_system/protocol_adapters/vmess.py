@@ -97,6 +97,9 @@ class VmessAdapter:
             vmess_json["path"] = "Vortex-x" # ServiceName
             vmess_json["type"] = "multi" # GRPC mode
             
+        json_str = json.dumps(vmess_json)
+        encoded = base64.b64encode(json_str.encode('utf-8')).decode('utf-8')
+        return f"vmess://{encoded}"
     def remove_user(self, username: str) -> bool:
         removed = False
         for inbound in self.config.get("inbounds", []):

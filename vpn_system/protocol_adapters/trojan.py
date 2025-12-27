@@ -77,9 +77,17 @@ class TrojanAdapter:
         address = host['domain']
         port = inbound['port']
         
-        params = [f"sni={host['domain']}"]
+        params = [f"sni={host['domain']}", "security=tls"]
         transport = inbound['streamSettings']['network']
+        params.append(f"type={transport}")
         
+        if transport == "ws":
+            params.append("path=%2FVortex-x")
+        elif transport == "grpc":
+            params.append("serviceName=Vortex-x")
+            
+        query = "&".join(params)
+        return f"trojan://{password}@{address}:{port}?{query}#{host['hostname']}-{transport}"
     def remove_user(self, username: str) -> bool:
         removed = False
         for inbound in self.config.get("inbounds", []):

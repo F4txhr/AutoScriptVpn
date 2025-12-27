@@ -43,6 +43,7 @@ class OutputGenerator:
                 # This is a bit redundant but keeps adapters decoupling
                 ib_mock = {
                     "port": ib['port'],
+                    "settings": {"method": "aes-256-gcm"}, # Default method
                     "streamSettings": {
                         "network": ib['transport'],
                         "security": "tls" if ib['port'] in [443, 8443, 8444, 8445, 2087] else "none"

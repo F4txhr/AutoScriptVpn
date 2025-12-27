@@ -64,6 +64,10 @@ class ShadowsocksAdapter:
         address = host['domain']
         port = inbound['port']
         
+        # ss://base64(method:password)@address:port#tag
+        auth = f"{method}:{password}"
+        auth_base64 = base64.b64encode(auth.encode('utf-8')).decode('utf-8')
+        return f"ss://{auth_base64}@{address}:{port}#{host['hostname']}"
     def remove_user(self, username: str) -> bool:
         removed = False
         for inbound in self.config.get("inbounds", []):
