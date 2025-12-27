@@ -308,28 +308,32 @@ install_wireguard() {
         log_info "WireGuard Tools are already installed."
     else
         log_info "Installing WireGuard Tools..."
+        
+        # Temporarily disable strict error checking
+        set +e
+        
         case "$ID_LIKE" in
             *debian*|*ubuntu*)
                 apt-get install -y wireguard
                 ;;
             *rhel*|*centos*|*fedora*|*almalinux*|*rocky*|*alinux*)
-                # Force enable EPEL for wireguard-tools
-                $PKG_MANAGER install -y wireguard-tools --enablerepo=epel
+                # Try standard install
+                $PKG_MANAGER install -y wireguard-tools
+                if [ $? -ne 0 ]; then
+                    log_warn "Standard install failed. Trying with EPEL enabled..."
+                    $PKG_MANAGER install -y wireguard-tools --enablerepo=epel
+                fi
                 ;;
         esac
         
-        if command -v wg &> /dev/null; then
+        INSTALL_RES=$?
+        set -e # Re-enable strict mode
+
+        if [ $INSTALL_RES -eq 0 ] && command -v wg &> /dev/null; then
              log_info "WireGuard Tools installed successfully."
         else
-             log_warn "WireGuard Tools installation failed via package manager. Attempting manual download of wg-quick (Partial Support)..."
-             # Fallback or strict error? 
-             # For production, we prefer strict error, but let's try to fix repo first.
-             $PKG_MANAGER makecache --refresh
-             $PKG_MANAGER install -y wireguard-tools --enablerepo=epel
-             
-             if ! command -v wg &> /dev/null; then
-                log_error "Failed to install WireGuard Tools. Ensure EPEL repo is working."
-             fi
+             log_warn "Failed to install WireGuard Tools. WireGuard protocol will not work, but Xray/VLESS will still function."
+             log_warn "You can try installing 'wireguard-tools' manually later."
         fi
     fi
 }
@@ -341,14 +345,24 @@ install_openvpn() {
         log_info "OpenVPN is already installed."
     else
         log_info "Installing OpenVPN & EasyRSA..."
+        
+        set +e
         case "$ID_LIKE" in
             *debian*|*ubuntu*)
                 apt-get install -y openvpn easy-rsa
                 ;;
             *rhel*|*centos*|*fedora*|*almalinux*|*rocky*|*alinux*)
-                $PKG_MANAGER install -y openvpn easy-rsa
+                $PKG_MANAGER install -y openvpn easy-rsa --enablerepo=epel
                 ;;
         esac
+        INSTALL_RES=$?
+        set -e
+
+        if [ $INSTALL_RES -eq 0 ]; then
+            log_info "OpenVPN installed successfully."
+        else
+            log_warn "Failed to install OpenVPN. OpenVPN protocol will not work, but others will function."
+        fi
     fi
 }
 
