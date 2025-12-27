@@ -29,7 +29,8 @@ def main():
         description="VPN Control (vpn-ctl): A command-line tool to manage the VPN system.",
         formatter_class=argparse.RawTextHelpFormatter
     )
-    subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    subparsers.required = True
 
     # --- System Initialization ---
     init_parser = subparsers.add_parser("init", help="Initialize the system")
@@ -37,7 +38,8 @@ def main():
 
     # --- User Management ---
     user_parser = subparsers.add_parser("user", help="Manage users")
-    user_subparsers = user_parser.add_subparsers(dest="user_command", required=True)
+    user_subparsers = user_parser.add_subparsers(dest="user_command")
+    user_subparsers.required = True
 
     # `user add` command
     user_add_parser = user_subparsers.add_parser("add", help="Add a new user")
