@@ -630,9 +630,14 @@ main() {
                     # Use absolute paths for symlinking
                     LE_PATH="/etc/letsencrypt/live/$DOMAIN_NAME"
                     if [ -f "$LE_PATH/fullchain.pem" ]; then
-                        ln -sf "$LE_PATH/fullchain.pem" "/etc/ssl/certs/$DOMAIN_NAME/fullchain.pem"
-                        ln -sf "$LE_PATH/privkey.pem" "/etc/ssl/certs/$DOMAIN_NAME/privkey.pem"
-                        log_info "Certificates linked successfully to /etc/ssl/certs/$DOMAIN_NAME/"
+                                            ln -sf "$LE_PATH/fullchain.pem" "/etc/ssl/certs/$DOMAIN_NAME/fullchain.pem"
+                                            ln -sf "$LE_PATH/privkey.pem" "/etc/ssl/certs/$DOMAIN_NAME/privkey.pem"
+                                            
+                                            # Fix permissions so Xray (nobody/xray user) can read them
+                                            chmod -R 755 /etc/letsencrypt/archive/
+                                            chmod -R 755 /etc/letsencrypt/live/
+                                            
+                                            log_info "Certificates linked and permissions fixed."
                     else
                         log_error "Certbot reported success but certificates not found in $LE_PATH"
                     fi
