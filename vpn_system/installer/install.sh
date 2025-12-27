@@ -275,12 +275,21 @@ install_xray_core() {
         fi
 
         if [ -s install-xray.sh ]; then
-            bash install-xray.sh @ install
-            if [ $? -eq 0 ]; then
-                log_info "Xray Core installed successfully."
+            # Check if file is a script (not HTML error)
+            if head -n 1 install-xray.sh | grep -q "^<"; then
+                log_error "Failed to download Xray script. The file appears to be HTML (likely an error page)."
                 rm -f install-xray.sh
             else
-                log_error "Failed to execute Xray install script."
+                # Run the script. When running from file, $1 is the first argument.
+                # The original command 'bash -c "..." @ install' sets $1='install'.
+                # So we just run 'bash install-xray.sh install'.
+                bash install-xray.sh install
+                if [ $? -eq 0 ]; then
+                    log_info "Xray Core installed successfully."
+                    rm -f install-xray.sh
+                else
+                    log_error "Failed to execute Xray install script."
+                fi
             fi
         else
             log_error "Failed to download Xray install script from both Main and Mirror URLs. Check internet connection."
