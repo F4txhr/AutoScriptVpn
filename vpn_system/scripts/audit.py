@@ -29,7 +29,7 @@ class SystemAuditor:
                     self.issues.append(f"Missing File: {name} at {path}")
 
     def check_services(self):
-        services = ["nginx", "xray", "fail2ban", "ufw", "cron"]
+        services = ["nginx", "xray", "fail2ban", "cron"] # Firewall checked separately
         for svc in services:
             res = subprocess.run(["systemctl", "is-active", svc], capture_output=True, text=True)
             if res.returncode == 0 and res.stdout.strip() == "active":
@@ -49,15 +49,30 @@ class SystemAuditor:
         except:
             self.issues.append("Could not read SSH config")
 
-        # UFW
+        # Firewall (UFW or Firewalld)
+        firewall_active = False
+        
+        # Check UFW
         try:
             res = subprocess.run(["ufw", "status"], capture_output=True, text=True)
             if "active" in res.stdout:
                 self.passed.append("Firewall (UFW): Active")
-            else:
-                self.warnings.append("Firewall (UFW): Inactive")
+                firewall_active = True
         except FileNotFoundError:
-            self.issues.append("Firewall (UFW): Command not found")
+            pass
+
+        # Check Firewalld
+        if not firewall_active:
+            try:
+                res = subprocess.run(["firewall-cmd", "--state"], capture_output=True, text=True)
+                if res.returncode == 0 and "running" in res.stdout:
+                    self.passed.append("Firewall (Firewalld): Active")
+                    firewall_active = True
+            except FileNotFoundError:
+                pass
+        
+        if not firewall_active:
+            self.issues.append("Firewall: No active firewall detected (UFW/Firewalld)")
 
     def check_resources(self):
         # Disk

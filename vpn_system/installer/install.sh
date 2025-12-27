@@ -58,7 +58,14 @@ install_deps() {
             ;;
         centos|almalinux|rocky|alinux)
             dnf install -y epel-release
-            dnf install -y python3 python3-pip nginx certbot curl wget rsync socat cronie jq vnstat fail2ban ufw
+            dnf makecache
+            # Try installing core packages. split ufw/firewalld logic
+            dnf install -y python3 python3-pip nginx wget rsync socat cronie jq vnstat fail2ban firewalld
+            
+            # Try install certbot, fallback to pip if missing
+            if ! dnf install -y certbot; then
+                pip3 install certbot
+            fi
             ;;
         *)
             log_error "Distribution $OS not supported yet."
@@ -99,10 +106,24 @@ apply_hardening() {
         chown -R vortex-x:vortex-x "$VORTEX_ETC"
         chmod 750 "$VORTEX_ETC"
         
-        # UFW basic setup
-        ufw allow 80/tcp
-        ufw allow 443/tcp
-        ufw allow ssh
+        # Firewall setup (Detect UFW or Firewalld)
+        if command -v ufw &> /dev/null; then
+            log_info "Configuring UFW..."
+            ufw allow 80/tcp
+            ufw allow 443/tcp
+            ufw allow ssh
+            # ufw --force enable # Optional: auto-enable
+        elif command -v firewall-cmd &> /dev/null; then
+            log_info "Configuring Firewalld..."
+            systemctl start firewalld
+            systemctl enable firewalld
+            firewall-cmd --permanent --add-service=http
+            firewall-cmd --permanent --add-service=https
+            firewall-cmd --permanent --add-service=ssh
+            firewall-cmd --reload
+        else
+            log_warn "No supported firewall manager found (ufw/firewalld). Ports might be closed."
+        fi
         
         # Run Service Hardening
         python3 "$VORTEX_LIB/scripts/harden_services.py"
@@ -121,7 +142,7 @@ setup_cron() {
 0 0 * * * root python3 $VORTEX_LIB/scripts/ssl_manager.py renew
 EOF
     chmod 644 "$CRON_FILE"
-    systemctl restart cron || systemctl restart cronie
+    systemctl restart cron || systemctl restart cronie || systemctl restart crond
 }
 
 main() {
