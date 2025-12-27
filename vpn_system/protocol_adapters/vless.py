@@ -67,7 +67,7 @@ class VlessAdapter:
         inbound = {
             "tag": inbound_tag,
             "port": port,
-            "listen": "0.0.0.0",
+            "listen": "127.0.0.1",
             "protocol": "vless",
             "settings": {
                 "clients": [],

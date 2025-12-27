@@ -468,6 +468,10 @@ setup_nginx_config() {
     local DOMAIN=$1
     log_info "Configuring Nginx for $DOMAIN..."
     
+    # Remove default configs to avoid "conflicting server name"
+    rm -f /etc/nginx/sites-enabled/default
+    rm -f /etc/nginx/conf.d/default.conf
+    
     # Use standard Ubuntu/Debian paths
     CONF_PATH="/etc/nginx/conf.d/vpn.conf"
     mkdir -p /etc/nginx/conf.d/
@@ -494,13 +498,19 @@ server {
             return 404;
         }
         proxy_redirect off;
-        proxy_pass http://127.0.0.1:10001; # Internal Xray Port
+        proxy_pass http://127.0.0.1:10001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        
+        # Add these for stability
+        proxy_connect_timeout 60s;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_buffering off;
     }
 
     location / {
