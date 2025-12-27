@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Exit immediately if a command exits with a non-zero status.
-set -e
-
 # --- Logging functions ---
 log_info() {
     echo "[INFO] $1"
@@ -435,29 +432,38 @@ install_vpn_system() {
 check_environment() {
     log_info "Checking system readiness..."
     
-    # 1. Check Internet
-    if ! curl -s --connect-timeout 5 https://google.com > /dev/null; then
-        log_error "No internet connection or DNS issues. Installation cannot proceed."
+    # 1. Check Internet (More tolerant)
+    if ! curl -s --connect-timeout 10 https://google.com > /dev/null && ! curl -s --connect-timeout 10 https://cloudflare.com > /dev/null; then
+        log_warn "Potential internet connection or DNS issues detected. Proceeding anyway..."
     fi
 
-    # 2. Check Disk Space (Min 500MB)
-    FREE_SPACE=$(df -m / | awk 'NR==2 {print $4}')
+    # 2. Check Disk Space (Handle potential df errors)
+    FREE_SPACE=$(df -m / | awk 'NR==2 {print $4}' 2>/dev/null || echo "999")
     if [ "$FREE_SPACE" -lt 500 ]; then
         log_warn "Low disk space: ${FREE_SPACE}MB. Installation might fail."
     fi
 
-    # 3. Check for Port Conflicts (80/443)
+    # 3. Check for Port Conflicts (Use ss as fallback for netstat)
+    PORT_80=0
     if command -v netstat &> /dev/null; then
         PORT_80=$(netstat -tuln | grep -c ":80 ")
-        if [ "$PORT_80" -gt 0 ]; then
-            log_warn "Port 80 is already in use. This might interfere with SSL (Certbot) setup."
-        fi
+    elif command -v ss &> /dev/null; then
+        PORT_80=$(ss -tuln | grep -c ":80")
+    fi
+    
+    if [ "$PORT_80" -gt 0 ]; then
+        log_warn "Port 80 is already in use. This might interfere with SSL (Certbot) setup."
     fi
 
     # 4. Detect PRoot/Termux
-    if [ -d "/data/data/com.termux" ] || [ -n "$PROOT_TMPDIR" ]; then
-        log_warn "Running inside Termux/PRoot. WireGuard and OpenVPN will be disabled."
-        IS_PROOT=true
+    if [ -d "/data/data/com.termux" ] || [ -n "$PROOT_TMPDIR" ] || [ -f "/proc/sys/kernel/cap_last_cap" ]; then
+        # Extra check for PRoot environments
+        if grep -q "PRoot" /proc/version 2>/dev/null || [ -d "/dev/.proot" ]; then
+             log_warn "Running inside Termux/PRoot. WireGuard and OpenVPN will be disabled."
+             IS_PROOT=true
+        else
+             IS_PROOT=false
+        fi
     else
         IS_PROOT=false
     fi
