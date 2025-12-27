@@ -65,9 +65,9 @@ class UnifiedUserManager:
                     credentials['password'] = user_obj['password']
 
             adapter._save_config()
-            # Reload Xray (should be done by caller or here)
+            # Restart Xray
             import subprocess
-            subprocess.run(["systemctl", "reload", "xray"], check=False)
+            subprocess.run(["systemctl", "restart", "xray"], check=False)
 
         elif protocol == 'wireguard':
             adapter = WireguardAdapter()

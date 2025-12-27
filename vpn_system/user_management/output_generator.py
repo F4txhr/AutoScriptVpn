@@ -39,14 +39,21 @@ class OutputGenerator:
             inbounds = [i for i in self.db.data['inbounds'] if i['protocol'] == protocol and i['bound_host'] == host['host_id']]
             
             for ib in inbounds:
+                # Port mapping for Nginx Reverse Proxy
+                public_port = ib['port']
+                is_tls = ib['port'] in [443, 8443, 8444, 8445, 2087]
+                
+                if ib['port'] == 10001:
+                    public_port = 443
+                    is_tls = True
+
                 # Reconstruct Xray inbound fragment enough for URI generation
-                # This is a bit redundant but keeps adapters decoupling
                 ib_mock = {
-                    "port": ib['port'],
+                    "port": public_port,
                     "settings": {"method": "aes-256-gcm"}, # Default method
                     "streamSettings": {
                         "network": ib['transport'],
-                        "security": "tls" if ib['port'] in [443, 8443, 8444, 8445, 2087] else "none"
+                        "security": "tls" if is_tls else "none"
                     }
                 }
                 if ib['transport'] == "ws":

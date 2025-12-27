@@ -35,7 +35,7 @@ def init_system(domain: str, ip: str, hostname: str):
     # Shadowsocks: 2443 (TCP/UDP)
 
     inbounds_to_create = [
-        {"protocol": "vless", "transport": "ws", "port": 10001, "tls": True},
+        {"protocol": "vless", "transport": "ws", "port": 10001, "tls": False},
         {"protocol": "vless", "transport": "grpc", "port": 8443, "tls": True},
         {"protocol": "vmess", "transport": "ws", "port": 8444, "tls": True},
         {"protocol": "vmess", "transport": "grpc", "port": 8445, "tls": True},
