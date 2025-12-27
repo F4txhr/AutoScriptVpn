@@ -17,21 +17,52 @@ class VlessAdapter:
             with open(self.config_path, 'r') as f:
                 return json.load(f)
         except FileNotFoundError:
-            # Return a default structure if the config doesn't exist
-            return {"inbounds": [], "outbounds": [{"protocol": "freedom", "tag": "direct"}]}
+            # Return a default structure with stats and policy enabled
+            return {
+                "stats": {},
+                "policy": {
+                    "levels": {"0": {"statsUserUplink": True, "statsUserDownlink": True}},
+                    "system": {"statsInboundUplink": True, "statsInboundDownlink": True}
+                },
+                "inbounds": [], 
+                "outbounds": [{"protocol": "freedom", "tag": "direct"}]
+            }
         except json.JSONDecodeError:
             raise ValueError(f"Invalid JSON in {self.config_path}")
 
     def _save_config(self):
-        """Saves the configuration back to the file."""
-        with open(self.config_path, 'w') as f:
-            json.dump(self.config, f, indent=4)
+        """Saves the configuration back to the file using an atomic write."""
+        import tempfile
+        import os
+
+        # Create a temporary file in the same directory to ensure atomic move works
+        dir_name = os.path.dirname(self.config_path)
+        
+        # Ensure directory exists
+        if not os.path.exists(dir_name):
+            try:
+                os.makedirs(dir_name, exist_ok=True)
+            except OSError as e:
+                raise RuntimeError(f"Failed to create directory {dir_name}: {e}")
+
+        try:
+            with tempfile.NamedTemporaryFile('w', dir=dir_name, delete=False) as tf:
+                json.dump(self.config, tf, indent=4)
+                temp_name = tf.name
+            
+            # Atomic replacement
+            os.replace(temp_name, self.config_path)
+        except (IOError, OSError) as e:
+            if 'temp_name' in locals() and os.path.exists(temp_name):
+                os.remove(temp_name)
+            raise RuntimeError(f"Failed to save Xray config to {self.config_path}: {e}")
 
     def generate_inbound(self, port: int, transport: str, tls: bool, domain: str) -> Dict[str, Any]:
         """
-        Generates a VLESS inbound configuration fragment.
+        Generates a VLESS inbound configuration fragment with custom path /Vortex-x.
         """
         inbound_tag = f"vless-{port}-{transport}"
+        custom_path = "/Vortex-x"
 
         inbound = {
             "tag": inbound_tag,
@@ -48,9 +79,9 @@ class VlessAdapter:
         }
 
         if transport == "ws":
-            inbound["streamSettings"]["wsSettings"] = {"path": f"/{inbound_tag}"}
+            inbound["streamSettings"]["wsSettings"] = {"path": custom_path}
         elif transport == "grpc":
-            inbound["streamSettings"]["grpcSettings"] = {"serviceName": inbound_tag}
+            inbound["streamSettings"]["grpcSettings"] = {"serviceName": "Vortex-x"}
 
         if tls:
             inbound["streamSettings"]["security"] = "tls"
@@ -89,6 +120,22 @@ class VlessAdapter:
 
         # self._save_config() # Defer saving to a more explicit call
         return user_object
+
+    def remove_user(self, username: str) -> bool:
+        """
+        Removes a user by email (username) from ALL inbounds.
+        Returns True if at least one user was removed.
+        """
+        removed = False
+        for inbound in self.config.get("inbounds", []):
+            clients = inbound.get("settings", {}).get("clients", [])
+            original_count = len(clients)
+            # Filter out the user
+            inbound["settings"]["clients"] = [c for c in clients if c.get("email") != username]
+            if len(inbound["settings"]["clients"]) < original_count:
+                removed = True
+        
+        return removed
 
     def get_user_uri(self, user: Dict, inbound: Dict, host: Dict) -> str:
         """

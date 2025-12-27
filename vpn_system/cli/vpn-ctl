@@ -31,6 +31,10 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
 
+    # --- System Initialization ---
+    init_parser = subparsers.add_parser("init", help="Initialize the system")
+    init_parser.add_argument("-d", "--domain", required=True, help="Domain name for the VPN server")
+
     # --- User Management ---
     user_parser = subparsers.add_parser("user", help="Manage users")
     user_subparsers = user_parser.add_subparsers(dest="user_command", required=True)
@@ -38,24 +42,30 @@ def main():
     # `user add` command
     user_add_parser = user_subparsers.add_parser("add", help="Add a new user")
     user_add_parser.add_argument("-u", "--username", required=True, help="Username for the new user")
-    user_add_parser.add_argument("-d", "--domain", required=True, help="The domain/host for the user")
-    user_add_parser.add_argument("-p", "--protocol", required=True, choices=['vless', 'wireguard'], help="The VPN protocol for the user")
+    user_add_parser.add_argument("-p", "--protocol", required=True, choices=['vless', 'wireguard', 'vmess', 'trojan', 'shadowsocks', 'openvpn'], help="The VPN protocol for the user")
+
+    # `user show` command
+    user_show_parser = user_subparsers.add_parser("show", help="Show user config")
+    user_show_parser.add_argument("-u", "--username", required=True)
+    user_show_parser.add_argument("-p", "--protocol", required=True)
 
     # --- Monitoring ---
     monitor_parser = subparsers.add_parser("monitor", help="Monitor the system and services")
     monitor_parser.add_argument("--json", action="store_true", help="Output status in JSON format")
 
-
     args, unknown_args = parser.parse_known_args()
 
-    if args.command == "user":
+    if args.command == "init":
+        run_script('core/system_init.py', [args.domain])
+
+    elif args.command == "user":
         if args.user_command == "add":
-            if args.protocol == 'vless':
-                script_args = ['add', '-u', args.username, '-d', args.domain]
-                run_script('user_management/manage_vless_user.py', script_args)
-            elif args.protocol == 'wireguard':
-                script_args = ['add', '-u', args.username, '-d', args.domain]
-                run_script('user_management/manage_wireguard_user.py', script_args)
+            run_script('user_management/unified_manager.py', ['add', '-u', args.username, '-p', args.protocol])
+            # Automatically show output after adding
+            print("\nGenerating connection outputs...")
+            run_script('user_management/output_generator.py', ['-u', args.username, '-p', args.protocol])
+        elif args.user_command == "show":
+            run_script('user_management/output_generator.py', ['-u', args.username, '-p', args.protocol])
 
     elif args.command == "monitor":
         script_args = []

@@ -67,11 +67,32 @@ def get_service_status(service_name: str) -> str:
     except Exception as e:
         return f"ERROR ({e})"
 
-def generate_report(metrics: Dict, services_status: Dict) -> str:
+def calculate_health_score(metrics: Dict, services_status: Dict) -> float:
+    """Calculates a numeric health score from 0 to 100."""
+    score = 100.0
+    
+    # Resource penalties
+    if metrics['cpu']['usage_percent'] > 80: score -= 10
+    if metrics['cpu']['usage_percent'] > 95: score -= 20
+    
+    if metrics['ram']['usage_percent'] > 80: score -= 10
+    if metrics['ram']['usage_percent'] > 95: score -= 20
+    
+    if metrics['disk']['usage_percent'] > 80: score -= 10
+    if metrics['disk']['usage_percent'] > 95: score -= 20
+    
+    # Service penalties
+    for service, status in services_status.items():
+        if status != "RUNNING":
+            score -= 15
+    
+    return max(0.0, score)
+
+def generate_report(metrics: Dict, services_status: Dict, health_score: float) -> str:
     """Generates a human-readable report."""
     report = []
     report.append("="*30)
-    report.append("  System Health & Service Status")
+    report.append(f"  System Health: {health_score}/100")
     report.append("="*30)
     report.append("\\n--- Host Metrics ---")
     report.append(f"  CPU Usage: {metrics['cpu']['usage_percent']}%")
@@ -96,18 +117,21 @@ def main():
     system_metrics = get_system_metrics()
 
     # List of services to monitor
-    vpn_services = ["xray", "wg-quick@wg0"]
+    vpn_services = ["xray", "wg-quick@wg0", "openvpn@server", "nginx"]
     services_status = {service: get_service_status(service) for service in vpn_services}
+    
+    health_score = calculate_health_score(system_metrics, services_status)
 
     # --- Output Report ---
     if args.json:
         full_report = {
+            "health_score": health_score,
             "host_metrics": system_metrics,
             "service_status": services_status
         }
         print(json.dumps(full_report, indent=4))
     else:
-        report_str = generate_report(system_metrics, services_status)
+        report_str = generate_report(system_metrics, services_status, health_score)
         print(report_str)
 
 if __name__ == "__main__":

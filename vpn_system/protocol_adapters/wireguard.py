@@ -46,10 +46,58 @@ class WireguardAdapter:
         return config
 
     def add_peer_to_config(self, peer_config: str):
-        """Appends a peer configuration to the main WireGuard config file."""
-        os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
-        with open(self.config_path, "a") as f:
-            f.write(peer_config)
+        """Appends a peer configuration to the main WireGuard config file safely."""
+        try:
+            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+            with open(self.config_path, "a") as f:
+                f.write(peer_config)
+        except (IOError, OSError) as e:
+            raise RuntimeError(f"Failed to append peer to WireGuard config {self.config_path}: {e}")
+
+    def remove_peer(self, public_key: str):
+        """
+        Removes a peer block from the WireGuard config file based on PublicKey.
+        Note: This is a basic text-based implementation.
+        """
+        if not os.path.exists(self.config_path):
+            return
+
+        try:
+            with open(self.config_path, "r") as f:
+                lines = f.readlines()
+
+            new_lines = []
+            skip = False
+            for line in lines:
+                if line.strip() == "[Peer]":
+                    skip = False # Start of a new peer, provisional add (check key later)
+                    # We need to peek ahead or buffer. 
+                    # Simpler approach: Read file, split by [Peer], filter.
+                    pass 
+            
+            # Re-reading with a block-based approach
+            content = "".join(lines)
+            blocks = content.split("[Peer]")
+            
+            # header is blocks[0]
+            final_blocks = [blocks[0]]
+            
+            for block in blocks[1:]:
+                if f"PublicKey = {public_key}" not in block:
+                    final_blocks.append(block)
+            
+            new_content = "[Peer]".join(final_blocks)
+            
+            # Atomic write
+            import tempfile
+            dir_name = os.path.dirname(self.config_path)
+            with tempfile.NamedTemporaryFile('w', dir=dir_name, delete=False) as tf:
+                tf.write(new_content)
+                temp_name = tf.name
+            os.replace(temp_name, self.config_path)
+
+        except (IOError, OSError) as e:
+            raise RuntimeError(f"Failed to remove peer from WireGuard config: {e}")
 
     def generate_client_config(self, private_key: str, client_address: str, server_public_key: str, server_endpoint: str) -> str:
         """
