@@ -1,207 +1,270 @@
-You are a senior DevOps architect, VPN protocol expert, and full-stack engineer.
-Your task is to DESIGN AND IMPLEMENT a COMPLETE, PRODUCTION-READY VPN SYSTEM
-that supports ALL major VPN protocols, runs on MULTIPLE operating systems,
-and includes INSTALLER, USER MANAGEMENT, MONITORING, and OUTPUT GENERATION.
+Kamu adalah Senior Linux System Engineer, Network Architect, dan VPN Platform Designer.
 
-════════════════════════════════════════════════════════════
-🎯 CORE GOALS (NON-NEGOTIABLE)
-════════════════════════════════════════════════════════════
-1. Support MULTIPLE VPN PROTOCOLS (selectable by admin):
-   - Xray-based: VLESS, VMess, Trojan, Shadowsocks
-   - Tunnel-based: WireGuard, OpenVPN
-   - Optional/Advanced: SOCKS5, HTTP Proxy, REALITY
+NAMA PROYEK:
+Vortex-x
 
-2. Admin ONLY selects the PROTOCOL.
-   - DO NOT ask user to select transport.
-   - System MUST auto-generate ALL supported transports
-     for the chosen protocol.
+AUTHOR:
+F4txhr
 
-3. ONE USER ACCOUNT must automatically generate MULTIPLE OUTPUT CONFIGS:
-   - WS TLS
-   - WS Non-TLS
-   - gRPC
-   - TCP (if applicable)
-   - Any protocol-specific variants
+TUJUAN UTAMA:
+Membangun platform VPN profesional berbasis VPS bernama **Vortex-x**, dari nol hingga production-ready,
+dengan dukungan SEMUA protokol VPN modern & legacy, monitoring sistem lengkap,
+UI/UX CLI dan Web yang rapi, modern, dan mudah digunakan.
 
-4. EVERY VPN ACCOUNT MUST HAVE A HOST.
-   - No account without host/domain.
-   - Host must be an entity, not just a string.
+Target penggunaan:
+- Personal
+- Komunitas
+- Komersial / SaaS VPN
 
-5. System MUST be INSTALLABLE on MULTIPLE OS:
-   - Ubuntu / Debian
-   - CentOS / Rocky / Alma / Alibaba Cloud Linux
-   - (Optional) Arch-based
-   - Detect OS automatically and adapt package manager & service config.
+==================================================
+🔐 CORE VPN ENGINE (WAJIB SEMUA)
+==================================================
 
-════════════════════════════════════════════════════════════
-🏗️ ARCHITECTURE REQUIREMENTS
-════════════════════════════════════════════════════════════
-- Use a MODULAR ARCHITECTURE with clear separation:
-  - Core Engine
-  - Protocol Adapters
-  - Transport Presets
-  - Host Manager
-  - User Manager
-  - Monitoring Engine
-  - Output Generator
+Implementasikan dan integrasikan SEMUA protokol berikut:
 
-- FOLLOW THIS ABSTRACTION:
-  HOST → INBOUND (GLOBAL) → USER → MULTI OUTPUT
+### Modern & Anti-Blokir
+- Xray Core (latest stable)
+  - VLESS (TLS, TCP, WS, GRPC, XTLS Vision)
+  - VMess
+  - Trojan
+  - Shadowsocks (AEAD)
+  - HTTP/2
+  - QUIC (jika memungkinkan)
 
-- NEVER create inbounds per user.
-- Inbounds are GLOBAL and reusable.
-- Users are protocol-bound but transport-agnostic.
+### Classic / Legacy
+- WireGuard
+- OpenVPN (TCP & UDP)
+- L2TP/IPSec
+- PPTP (opsional, warning insecure)
 
-════════════════════════════════════════════════════════════
-📦 REQUIRED ENTITIES (MANDATORY)
-════════════════════════════════════════════════════════════
+### Tambahan
+- SOCKS5 Proxy
+- HTTP Proxy
 
-1. HOST ENTITY
-   - host_id
-   - hostname
-   - domain
-   - ip
-   - location
-   - status
-   - supported_protocols
-   - health_score
+Semua protokol:
+- Bisa hidup berdampingan
+- Multi-port
+- Multi-inbound
+- Bisa enable/disable per protokol
 
-2. PROTOCOL PRESET
-   - protocol name
-   - list of auto-enabled transports
-   - default ports
-   - paths / service names (customizable, e.g. /vortex-x)
+==================================================
+🌐 TRANSPORT, CAMOUFLAGE & CDN
+==================================================
 
-3. INBOUND REGISTRY
-   - protocol
-   - transport
-   - port
-   - listen address
-   - status
-   - bound host
+WAJIB:
+- TLS 1.3
+- WebSocket
+- gRPC
+- HTTP/2
+- TCP fallback
+- Reverse Proxy (nginx)
+- Fake website (fallback)
+- CDN ready (Cloudflare compatible)
 
-4. USER ACCOUNT
-   - username
-   - uuid / key / credential (protocol dependent)
-   - protocol
-   - host_id
-   - quota
-   - used traffic
-   - expiry date
-   - status
-   - last active
+==================================================
+🔑 DOMAIN & SSL
+==================================================
 
-════════════════════════════════════════════════════════════
-⚙️ INSTALLER REQUIREMENTS
-════════════════════════════════════════════════════════════
-- Single AUTO INSTALL SCRIPT
-- OS detection
-- Dependency installation
-- Firewall configuration
-- Service enable & reload
-- SSL automation (Let’s Encrypt where applicable)
-- Safe re-run (idempotent)
-- Production hardening:
-  - log rotation
-  - restart policy
-  - validation before reload
+WAJIB:
+- Let’s Encrypt (certbot)
+- Auto renew
+- Multi-domain support
+- Permission hardening
+- Non-root service access
+- Pre-flight domain validation
 
-════════════════════════════════════════════════════════════
-👤 USER MANAGEMENT (AUTOMATED)
-════════════════════════════════════════════════════════════
-- Add user ONCE → inject into ALL relevant protocols & transports
-- Auto-generate:
-  - UUID / keys
-  - credentials
-- Auto-expiry system (cron or scheduler)
-- Auto-delete expired users
-- Quota enforcement (global per user)
+==================================================
+🧑‍💻 USER & ACCOUNT MANAGEMENT
+==================================================
 
-════════════════════════════════════════════════════════════
-📤 OUTPUT GENERATION (VERY IMPORTANT)
-════════════════════════════════════════════════════════════
-For EACH user, automatically generate:
-- URI links (vless://, vmess://, trojan://, etc.)
-- Client configs:
-  - sing-box
-  - clash-meta
-  - raw config (xray/wireguard/openvpn)
+WAJIB:
+- Generate akun otomatis
+- UUID / password / key based auth
+- Expired date
+- Limit IP/device
+- Quota bandwidth (optional)
+- Suspend / resume akun
+- Auto delete akun expired
+- Auto test akun (alive / dead)
+- Auto revoke akun mati
 
-Output must be:
-- Host-based (domain/IP)
-- Clearly labeled per transport
-- Sorted by recommended priority
+==================================================
+🖥️ SYSTEMD & SERVICE HARDENING
+==================================================
 
-════════════════════════════════════════════════════════════
-📊 MONITORING SYSTEM (NOT OPTIONAL)
-════════════════════════════════════════════════════════════
-Implement monitoring at ALL levels:
+WAJIB:
+- Semua service jalan non-root
+- systemd hardening:
+  - CapabilityBoundingSet
+  - NoNewPrivileges
+- Config validation sebelum reload
+- Auto restart
+- Watchdog
+- Graceful reload
 
-1. SYSTEM / HOST:
-   - CPU, RAM, Disk
-   - Network RX/TX
-   - Load average
+==================================================
+🔥 FIREWALL & NETWORK SECURITY
+==================================================
 
-2. SERVICE:
-   - VPN engine status
-   - Restart count
-   - Error spike detection
-
-3. INBOUND / TRANSPORT:
-   - Port availability
-   - Handshake health
-   - Transport status (OK / FAIL)
-
-4. USER:
-   - Traffic usage
-   - Active connections
-   - Last activity
-   - Last transport used
-
-5. HEALTH SCORE:
-   - Calculate a numeric health score per host.
-
-════════════════════════════════════════════════════════════
-🖥️ INTERFACE REQUIREMENTS
-════════════════════════════════════════════════════════════
-- Provide:
-  - CLI tools (bash or equivalent)
-  - Optional Web Panel (API-first, no Streamlit)
-- UI/UX must be:
-  - Monitoring-first
-  - Minimal
-  - Admin-oriented
-- NO transport selection UI for users.
-
-════════════════════════════════════════════════════════════
-🔐 SECURITY & STEALTH
-════════════════════════════════════════════════════════════
-- Support TLS and Non-TLS modes
-- Fake website / fallback
+WAJIB:
+- UFW / iptables / nftables
+- Anti brute-force SSH
+- Fail2ban
 - Rate limiting
-- Path hardening
-- Anti-abuse readiness
+- Optional port knocking
+- SSH hardening (key-only, no root login)
 
-════════════════════════════════════════════════════════════
-📈 FUTURE-PROOFING
-════════════════════════════════════════════════════════════
-- Multi-host ready
-- Easy protocol extension via adapters
-- No refactor required to add new protocol or transport
+==================================================
+📊 MONITORING SISTEM (WAJIB LENGKAP)
+==================================================
 
-════════════════════════════════════════════════════════════
-📌 OUTPUT FORMAT REQUIRED
-════════════════════════════════════════════════════════════
-You MUST output:
-1. Final architecture explanation
-2. File & folder structure
-3. Installer script(s)
-4. User management scripts
-5. Monitoring scripts
-6. Example generated VPN outputs
-7. Notes for extending protocols & OS support
+Monitoring real-time & historis:
+- CPU usage
+- RAM usage
+- Disk usage
+- Network RX/TX
+- Active VPN connections per protocol
+- Online users
+- Per-user traffic usage
+- Service status (Xray, WG, OVPN, nginx, dll)
+- SSL expiry countdown
+- Alert jika service down
 
-DO NOT ask questions.
-DO NOT give options.
-DO NOT omit components.
-ASSUME THIS IS A REAL PRODUCTION SYSTEM.
+Output monitoring:
+- CLI dashboard
+- JSON output
+- (Opsional) Web dashboard dark mode
+
+==================================================
+🧰 MANAGEMENT INTERFACE (MENU HARUS BAGUS)
+==================================================
+
+### CLI TOOL: `vortex-x`
+
+=== ROOT MENU HEADER (WAJIB, SELALU TAMPIL) ===
+Pada ROOT MENU, HEADER HARUS MENAMPILKAN ringkasan real-time berikut:
+
+- ASCII Banner: "Vortex-x"
+- Author: F4txhr
+- Hostname & OS
+- System uptime
+- CPU usage (%)
+- RAM usage (used / total)
+- Disk usage
+- Network RX / TX
+- Total user VPN
+- User aktif (online)
+- Total koneksi VPN aktif
+- Status service:
+  - Xray
+  - WireGuard
+  - OpenVPN
+  - Nginx
+- Status SSL + sisa hari masa berlaku
+
+Ketentuan HEADER:
+- Selalu tampil di ROOT MENU (bukan submenu)
+- Auto refresh
+- Ringkas (tidak lebih dari 1 layar)
+- Warna ANSI (dark theme)
+- Tidak mengganggu navigasi menu
+- Tetap rapi di berbagai ukuran terminal
+
+--------------------------------------------------
+
+Menu utama:
+
+1. VPN Status & Monitoring (detail)
+2. Manage Users
+3. Protocol Manager
+4. Network & Firewall
+5. SSL & Domain
+6. Backup & Restore
+7. Logs & Debug
+8. System Info
+9. Settings
+0. Exit
+
+WAJIB:
+- Output rapi
+- Error jelas
+- Bisa non-interactive (flag)
+
+==================================================
+🌐 WEB PANEL (OPSIONAL TAPI DIREKOMENDASIKAN)
+==================================================
+
+- Dark mode (default)
+- Minimalist & modern
+- Admin login
+- Dashboard monitoring
+- User management
+- Protocol toggle
+- Download config QR / link
+- API-ready
+
+==================================================
+🛡️ SECURITY HARDENING
+==================================================
+
+WAJIB:
+- Protect private key & config
+- Permission audit otomatis
+- ACL untuk service user
+- Disable unused protocol
+- Audit log akses admin
+
+==================================================
+📦 BACKUP & RECOVERY
+==================================================
+
+WAJIB:
+- Backup config & user
+- Scheduled backup
+- Restore command
+- Rollback jika update gagal
+
+==================================================
+🚀 DEPLOYMENT & AUTOMATION
+==================================================
+
+WAJIB:
+- One-command install
+- OS auto-detection
+- Idempotent (boleh dijalankan ulang)
+- Clear progress output
+- Error handling + rollback
+- Update system aman
+
+==================================================
+📤 OUTPUT YANG WAJIB KAMU HASILKAN
+==================================================
+
+1. Arsitektur sistem (diagram teks)
+2. Daftar dependency
+3. Struktur direktori Vortex-x
+4. Flow instalasi
+5. Command shell REAL & RUNNABLE
+6. Contoh config semua protokol
+7. Contoh CLI menu (ASCII, dengan HEADER)
+8. Contoh output monitoring
+9. Checklist production-ready
+10. Tips troubleshooting nyata
+
+==================================================
+⚠️ ATURAN KERAS
+==================================================
+
+- Jangan hanya menjelaskan konsep
+- Jangan menjawab setengah
+- Jangan menyarankan reinstall kecuali fatal
+- Jika ada error → FIX
+- Semua solusi harus production-grade
+
+MODE KERJA:
+- Bertindak sebagai EKSEKUTOR
+- Asumsikan user siap menjalankan perintah
+- Bahasa teknis, tegas, ringkas
+- Fokus hasil nyata
+
+MULAI SEKARANG.

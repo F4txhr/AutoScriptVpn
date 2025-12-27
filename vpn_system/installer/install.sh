@@ -1,696 +1,144 @@
 #!/bin/bash
 
-# --- Logging functions ---
-log_info() {
-    echo "[INFO] $1"
-}
+# ==================================================
+# Project: Vortex-x VPN Platform
+# Author: F4txhr
+# Description: Professional VPN Installer & Hardening
+# ==================================================
 
-log_warn() {
-    echo "[WARN] $1"
-}
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
 
-log_error() {
-    echo "[ERROR] $1" >&2
-    exit 1
-}
+# Paths
+VORTEX_LIB="/usr/local/lib/vortex-x"
+VORTEX_ETC="/usr/local/etc/vortex-x"
+VORTEX_BIN="/usr/local/bin/vortex-x"
 
-# --- OS Detection ---
-detect_os() {
-    if [ -f /etc/os-release ]; then
-        # freedesktop.org and systemd
-        . /etc/os-release
-        OS=$NAME
-        VER=$VERSION_ID
-        ID_LIKE=${ID_LIKE:-$ID} # Set ID_LIKE to ID if it's not set
-    else
-        log_error "Cannot detect operating system."
-    fi
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
-    log_info "Detected OS: $OS $VER"
-}
-
-# --- Dependency Installation ---
-install_dependencies() {
-    log_info "Installing base dependencies..."
-    case "$ID_LIKE" in
-        *debian*|*ubuntu*)
-            log_info "Using apt-get for Debian/Ubuntu-based system."
-            export DEBIAN_FRONTEND=noninteractive
-            apt-get update -y
-            apt-get install -y python3 python3-pip python3-venv python3-psutil coreutils curl wget socat iptables-persistent net-tools rsync cron
-            ;;
-        *rhel*|*centos*|*fedora*|*almalinux*|*rocky*|*alinux*)
-            log_info "Using dnf/yum for RHEL/CentOS/Alibaba-based system."
-            # Use dnf if available, otherwise fall back to yum
-            if command -v dnf &> /dev/null; then
-                PKG_MANAGER="dnf"
-            else
-                PKG_MANAGER="yum"
-            fi
-            $PKG_MANAGER install -y epel-release || log_warn "Could not install EPEL release. Some packages may be unavailable."
-            
-            # Fix broken EPEL repo URL if present (common in some cloud images)
-            if [ -f /etc/yum.repos.d/epel.repo ]; then
-                sed -i 's/download.example\/pub/mirrors.aliyun.com/g' /etc/yum.repos.d/epel.repo
-            fi
-
-            $PKG_MANAGER install -y python3 python3-pip python3-devel coreutils curl wget socat iptables-services net-tools rsync
-            ;;
-        *)
-            log_error "Unsupported operating system: $OS. This script supports Debian, Ubuntu, CentOS, RHEL, Rocky, AlmaLinux, and Alibaba Cloud Linux."
-            ;;
-    esac
-
-    log_info "Installing Python dependencies..."
-    # Use apt to install psutil on Debian-based systems to comply with PEP 668
-    case "$ID_LIKE" in
-        *debian*|*ubuntu*)
-            apt-get install -y python3-psutil
-            ;;
-        *rhel*|*centos*|*fedora*|*almalinux*|*rocky*|*alinux*)
-            # For RHEL-based systems, pip is generally fine, or use dnf/yum if available
-            pip3 install psutil
-            ;;
-    esac
-
-    log_info "Base dependencies installed successfully."
-}
-
-# --- Install Certbot (SSL) ---
-install_certbot() {
-    log_info "Installing Certbot..."
-    
-    case "$ID_LIKE" in
-        *debian*|*ubuntu*)
-            apt-get update
-            apt-get install -y certbot
-            ;;
-        *rhel*|*centos*|*fedora*|*almalinux*|*rocky*|*alinux*)
-            # Try installing via package manager first
-            set +e # Disable exit on error temporarily
-            $PKG_MANAGER install -y certbot
-            EXIT_CODE=$?
-            set -e # Re-enable exit on error
-
-            if [ $EXIT_CODE -ne 0 ]; then
-                log_warn "Package 'certbot' not found in repositories. Attempting install via Pip..."
-                pip3 install certbot
-                
-                # Check if certbot command exists after pip install
-                if ! command -v certbot &> /dev/null; then
-                    # Sometimes pip installs to locations not immediately in PATH or needs a wrapper
-                    if [ -f /usr/local/bin/certbot ]; then
-                         log_info "Certbot found at /usr/local/bin/certbot"
-                    else
-                         log_warn "Certbot binary not found in PATH after pip install. Creating wrapper..."
-                         echo '#!/bin/bash' > /usr/local/bin/certbot
-                         echo 'python3 -m certbot "$@"' >> /usr/local/bin/certbot
-                         chmod +x /usr/local/bin/certbot
-                    fi
-                fi
-            fi
-            ;;
-    esac
-}
-
-# --- Network & Firewall Setup ---
-setup_network_firewall() {
-    log_info "Configuring Network and Firewall..."
-
-    # 1. Enable IP Forwarding
-    echo "net.ipv4.ip_forward = 1" > /etc/sysctl.d/99-vpn.conf
-    sysctl --system
-    log_info "IP Forwarding enabled."
-
-    # 2. Configure Firewall (Try UFW, then Firewalld, then IPTables)
-    if command -v ufw &> /dev/null; then
-        log_info "Configuring UFW..."
-        ufw allow 80/tcp
-        ufw allow 443/tcp
-        ufw allow 51820/udp
-        ufw allow ssh
-        # ufw enable # CAUTION: Don't auto-enable to avoid locking out, just allow ports.
-    elif command -v firewall-cmd &> /dev/null; then
-        log_info "Configuring Firewalld..."
-        if systemctl is-active --quiet firewalld; then
-            firewall-cmd --permanent --add-service=http
-            firewall-cmd --permanent --add-service=https
-            firewall-cmd --permanent --add-port=51820/udp
-            firewall-cmd --permanent --add-masquerade
-            firewall-cmd --reload
-        else
-            log_warn "Firewalld is installed but not active. Skipping configuration."
-        fi
-    else
-        log_info "Configuring raw IPTables..."
-        iptables -I INPUT -p tcp --dport 80 -j ACCEPT
-        iptables -I INPUT -p tcp --dport 443 -j ACCEPT
-        iptables -I INPUT -p udp --dport 51820 -j ACCEPT
-        netfilter-persistent save || service iptables save || true
-    fi
-}
-
-# --- Cron Job for Monitoring & Backup ---
-setup_cron() {
-    log_info "Setting up Cron Jobs..."
-    
-    # 1. Expiry Monitor (Daily)
-    CRON_EXPIRY="0 0 * * * /usr/bin/python3 /usr/local/lib/vpn_system/user_management/expiry_monitor.py >> /var/log/vpn_expiry.log 2>&1"
-    
-    # 2. Traffic Monitor (Every 5 Minutes)
-    CRON_TRAFFIC="*/5 * * * * /usr/bin/python3 /usr/local/lib/vpn_system/user_management/traffic_monitor.py >> /var/log/vpn_traffic.log 2>&1"
-    
-    # 3. Backup Telegram (Daily)
-    CRON_BACKUP="0 1 * * * /usr/bin/python3 /usr/local/lib/vpn_system/user_management/backup_telegram.py >> /var/log/vpn_backup.log 2>&1"
-
-    (crontab -l 2>/dev/null | grep -v "user_management" ; echo "$CRON_EXPIRY" ; echo "$CRON_TRAFFIC" ; echo "$CRON_BACKUP") | crontab -
-}
-
-# --- System Optimization (BBR, Time, Swap, Limits) ---
-optimize_system() {
-    log_info "Applying System Optimizations (BBR, Swap, Time Sync, Limits)..."
-
-    # 1. Time Synchronization (Critical for VLESS/VMess)
-    log_info "Configuring Time Synchronization..."
-    case "$ID_LIKE" in
-        *debian*|*ubuntu*)
-            apt-get install -y chrony
-            ;;
-        *rhel*|*centos*|*fedora*|*almalinux*|*rocky*|*alinux*)
-            $PKG_MANAGER install -y chrony
-            ;;
-    esac
-    systemctl enable --now chronyd
-    timedatectl set-ntp true
-
-    # 2. Enable TCP BBR (Speed Boost)
-    log_info "Enabling TCP BBR..."
-    if ! grep -q "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.conf; then
-        echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
-    fi
-
-    # 3. Tuning System Limits (High Concurrency)
-    log_info "Tuning System Limits..."
-    if ! grep -q "fs.file-max" /etc/sysctl.conf; then
-        echo "fs.file-max = 1000000" >> /etc/sysctl.conf
-        echo "net.ipv4.ip_local_port_range = 1024 65535" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_window_scaling = 1" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_keepalive_time = 600" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_keepalive_intvl = 10" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_keepalive_probes = 6" >> /etc/sysctl.conf
-    fi
-    
-    # Apply sysctl changes
-    sysctl -p
-
-    # Update limits.conf for max open files
-    mkdir -p /etc/security/limits.d
-    echo "* soft nofile 65535" > /etc/security/limits.d/20-vpn.conf
-    echo "* hard nofile 65535" >> /etc/security/limits.d/20-vpn.conf
-    echo "root soft nofile 65535" >> /etc/security/limits.d/20-vpn.conf
-    echo "root hard nofile 65535" >> /etc/security/limits.d/20-vpn.conf
-
-    # 4. Auto Swap (2GB) - Prevent OOM Kills
-    log_info "Checking Swap Memory..."
-    if [ $(free -m | awk '/^Swap:/{print $2}') -eq 0 ]; then
-        log_info "No Swap detected. Creating 2GB Swap file..."
-        # Try fallocate first, fallback to dd
-        fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048
-        chmod 600 /swapfile
-        mkswap /swapfile
-        swapon /swapfile
-        echo '/swapfile none swap sw 0 0' >> /etc/fstab
-        log_info "Swap created successfully."
-    else
-        log_info "Swap already exists."
-    fi
-
-    # 5. Log Rotation for Xray
-    log_info "Configuring Log Rotation..."
-    mkdir -p /etc/logrotate.d
-    cat > /etc/logrotate.d/xray <<EOF
-/var/log/xray/*.log {
-    daily
-    rotate 3
-    missingok
-    compress
-    notifempty
-    create 640 nobody nobody
-    postrotate
-        systemctl restart xray > /dev/null 2>/dev/null || true
-    endscript
-}
-EOF
-}
-
-# --- Install Menu ---
-install_menu() {
-    log_info "Installing Interactive Menu..."
-    mkdir -p /usr/local/lib/vpn_system/menu
-    cp ./vpn_system/menu/menu.sh /usr/local/lib/vpn_system/menu/menu.sh
-    chmod +x /usr/local/lib/vpn_system/menu/menu.sh
-    ln -sf /usr/local/lib/vpn_system/menu/menu.sh /usr/local/bin/menu
-    ln -sf /usr/local/lib/vpn_system/menu/menu.sh /usr/bin/menu
-    log_info "Menu installed. Type 'menu' to access."
-}
-
-# --- Install Xray Core ---
-install_xray_core() {
-    if command -v xray &> /dev/null; then
-        log_info "Xray Core is already installed."
-    else
-        log_info "Installing Xray Core..."
-        
-        # List of mirrors for the installation script
-        MIRRORS=(
-            "https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
-            "https://ghproxy.net/https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh"
-            "https://raw.fastgit.org/XTLS/Xray-install/main/install-release.sh"
-        )
-        
-        SUCCESS=false
-        for URL in "${MIRRORS[@]}"; do
-            log_info "Attempting to download installer from: $URL"
-            # Added timeout and removed -s to see progress
-            if curl -4 -L --connect-timeout 10 --max-time 60 -o install-xray.sh "$URL"; then
-                if [ -s install-xray.sh ] && ! head -n 1 install-xray.sh | grep -q "^<"; then
-                    log_info "Download successful!"
-                    SUCCESS=true
-                    break
-                else
-                    log_warn "Downloaded file from $URL is invalid or empty."
-                    rm -f install-xray.sh
-                fi
-            else
-                log_warn "Failed to download from $URL"
-            fi
-        done
-
-        if [ "$SUCCESS" = true ]; then
-            log_info "Executing Xray install script..."
-            if bash install-xray.sh install; then
-                log_info "Xray Core installed successfully."
-                rm -f install-xray.sh
-            else
-                log_error "Xray installation script execution failed."
-                rm -f install-xray.sh
-            fi
-        else
-            log_error "Could not download Xray install script from any mirror. Please check your internet connection or DNS."
-        fi
-    fi
-}
-
-# --- Install WireGuard ---
-install_wireguard() {
-    if command -v wg &> /dev/null; then
-        log_info "WireGuard Tools are already installed."
-    else
-        log_info "Installing WireGuard Tools..."
-        
-        # Temporarily disable strict error checking
-        set +e
-        
-        case "$ID_LIKE" in
-            *debian*|*ubuntu*)
-                apt-get install -y wireguard
-                ;;
-            *rhel*|*centos*|*fedora*|*almalinux*|*rocky*|*alinux*)
-                # Try standard install
-                $PKG_MANAGER install -y wireguard-tools
-                if [ $? -ne 0 ]; then
-                    log_warn "Standard install failed. Trying with EPEL enabled..."
-                    $PKG_MANAGER install -y wireguard-tools --enablerepo=epel
-                fi
-                ;;
-        esac
-        
-        INSTALL_RES=$?
-        set -e # Re-enable strict mode
-
-        if [ $INSTALL_RES -eq 0 ] && command -v wg &> /dev/null; then
-             log_info "WireGuard Tools installed successfully."
-        else
-             log_warn "Failed to install WireGuard Tools. WireGuard protocol will not work, but Xray/VLESS will still function."
-             log_warn "You can try installing 'wireguard-tools' manually later."
-        fi
-    fi
-}
-
-
-# --- Install OpenVPN ---
-install_openvpn() {
-    if command -v openvpn &> /dev/null; then
-        log_info "OpenVPN is already installed."
-    else
-        log_info "Installing OpenVPN & EasyRSA..."
-        
-        set +e
-        case "$ID_LIKE" in
-            *debian*|*ubuntu*)
-                apt-get install -y openvpn easy-rsa
-                ;;
-            *rhel*|*centos*|*fedora*|*almalinux*|*rocky*|*alinux*)
-                $PKG_MANAGER install -y openvpn easy-rsa --enablerepo=epel
-                ;;
-        esac
-        INSTALL_RES=$?
-        set -e
-
-        if [ $INSTALL_RES -eq 0 ]; then
-            log_info "OpenVPN installed successfully."
-        else
-            log_warn "Failed to install OpenVPN. OpenVPN protocol will not work, but others will function."
-        fi
-    fi
-}
-
-# --- Install Nginx ---
-install_nginx() {
-    if command -v nginx &> /dev/null; then
-        log_info "Nginx is already installed."
-    else
-        log_info "Installing Nginx..."
-        case "$ID_LIKE" in
-            *debian*|*ubuntu*)
-                apt-get install -y nginx
-                ;;
-            *rhel*|*centos*|*fedora*|*almalinux*|*rocky*|*alinux*)
-                $PKG_MANAGER install -y nginx
-                # Enable on boot for RHEL based
-                systemctl enable nginx
-                ;;
-        esac
-    fi
-}
-
-# --- Install VPN System ---
-install_vpn_system() {
-    log_info "Installing VPN system files..."
-
-    # Define paths
-    SRC_DIR="./vpn_system"
-    LIB_INSTALL_DIR="/usr/local/lib/vpn_system"
-    BIN_INSTALL_PATH="/usr/local/bin/vpn-ctl"
-    CLI_SRC_PATH="$SRC_DIR/cli/vpn-ctl"
-
-    if [ ! -d "$SRC_DIR" ]; then
-        log_error "Source directory '$SRC_DIR' not found. Please run the installer from the repository root."
-    fi
-
-    # Create library directory and copy all system files
-    rm -rf "$LIB_INSTALL_DIR" # Clean previous installation
-    mkdir -p "$LIB_INSTALL_DIR"
-    # Copy everything except the installer itself
-    rsync -av --exclude 'installer/' "$SRC_DIR/" "$LIB_INSTALL_DIR/"
-    if [ $? -ne 0 ]; then
-        log_error "Failed to copy system files to $LIB_INSTALL_DIR."
-    fi
-
-    # Install the CLI script to the bin path
-    cp "$CLI_SRC_PATH" "$BIN_INSTALL_PATH"
-    if [ $? -ne 0 ]; then
-        log_error "Failed to copy vpn-ctl to $BIN_INSTALL_PATH."
-    fi
-
-    # Make the CLI script executable
-    chmod +x "$BIN_INSTALL_PATH"
-    if [ $? -ne 0 ]; then
-        log_error "Failed to make vpn-ctl executable."
-    fi
-
-    # Create symlink in /usr/bin/ for compatibility
-    ln -sf "$BIN_INSTALL_PATH" /usr/bin/vpn-ctl
-
-    log_info "VPN system installed successfully."
-    log_info "CLI tool is available at: $BIN_INSTALL_PATH"
-}
-
-
-# --- Environment Check ---
-check_environment() {
-    log_info "Checking system readiness..."
-    
-    # 1. Check Internet (More tolerant)
-    if ! curl -s --connect-timeout 10 https://google.com > /dev/null && ! curl -s --connect-timeout 10 https://cloudflare.com > /dev/null; then
-        log_warn "Potential internet connection or DNS issues detected. Proceeding anyway..."
-    fi
-
-    # 2. Check Disk Space (Handle potential df errors)
-    FREE_SPACE=$(df -m / | awk 'NR==2 {print $4}' 2>/dev/null || echo "999")
-    if [ "$FREE_SPACE" -lt 500 ]; then
-        log_warn "Low disk space: ${FREE_SPACE}MB. Installation might fail."
-    fi
-
-    # 3. Check for Port Conflicts (Use ss as fallback for netstat)
-    PORT_80=0
-    if command -v netstat &> /dev/null; then
-        PORT_80=$(netstat -tuln | grep -c ":80 ")
-    elif command -v ss &> /dev/null; then
-        PORT_80=$(ss -tuln | grep -c ":80")
-    fi
-    
-    if [ "$PORT_80" -gt 0 ]; then
-        log_warn "Port 80 is already in use. This might interfere with SSL (Certbot) setup."
-    fi
-
-    # 4. Detect PRoot/Termux
-    if [ -d "/data/data/com.termux" ] || [ -n "$PROOT_TMPDIR" ] || [ -f "/proc/sys/kernel/cap_last_cap" ]; then
-        # Extra check for PRoot environments
-        if grep -q "PRoot" /proc/version 2>/dev/null || [ -d "/dev/.proot" ]; then
-             log_warn "Running inside Termux/PRoot. WireGuard and OpenVPN will be disabled."
-             IS_PROOT=true
-        else
-             IS_PROOT=false
-        fi
+# --- Check Environment ---
+check_env() {
+    log_info "Checking environment..."
+    if [ -d "/data/data/com.termux" ] || [ -n "$PROOT_TMPDIR" ]; then
+        log_warn "Running in PRoot/Termux environment. Full system hardening and kernel protocols (WG/OVPN) might fail execution."
+        IS_PROOT=true
     else
         IS_PROOT=false
+        [ "$(id -u)" -ne 0 ] && log_error "This script must be run as root on a real VPS."
     fi
 }
 
-# --- Nginx Configuration ---
-setup_nginx_config() {
-    local DOMAIN=$1
-    log_info "Configuring Nginx for $DOMAIN..."
-    
-    # Aggressive cleanup of potential conflicts
-    [ -L /etc/nginx/sites-enabled/default ] && rm -f /etc/nginx/sites-enabled/default
-    [ -f /etc/nginx/sites-available/default ] && rm -f /etc/nginx/sites-available/default
-    
-    # Remove any existing config files in common directories that mention this domain
-    find /etc/nginx/conf.d/ /etc/nginx/sites-enabled/ /etc/nginx/sites-available/ -type f -exec grep -l "$DOMAIN" {} + 2>/dev/null | xargs rm -f
-    
-    # Use standard Ubuntu/Debian paths
-    CONF_PATH="/etc/nginx/conf.d/vpn.conf"
-    mkdir -p /etc/nginx/conf.d/
-
-    cat > "$CONF_PATH" <<EOF
-server {
-    listen 80;
-    server_name $DOMAIN;
-    return 301 https://\$host\$request_uri;
+# --- Detect OS ---
+detect_os() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS=$ID
+        VER=$VERSION_ID
+    else
+        log_error "Unsupported OS."
+    fi
+    log_info "Detected OS: $NAME ($VER)"
 }
 
-server {
-    listen 443 ssl http2;
-    server_name $DOMAIN;
+# --- Install Dependencies ---
+install_deps() {
+    log_info "Installing dependencies..."
+    case "$OS" in
+        ubuntu|debian)
+            apt-get update -y
+            apt-get install -y python3 python3-pip python3-venv python3-psutil \
+                nginx certbot curl wget rsync socat cron jq vnstat fail2ban ufw
+            ;;;
+        centos|almalinux|rocky)
+            dnf install -y epel-release
+            dnf install -y python3 python3-pip nginx certbot curl wget rsync socat cronie jq vnstat fail2ban ufw
+            ;;;
+        *)
+            log_error "Distribution $OS not supported yet."
+            ;;
+    esac
+}
 
-    ssl_certificate /etc/ssl/certs/$DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/ssl/certs/$DOMAIN/privkey.pem;
+# --- Deploy Files ---
+deploy_files() {
+    log_info "Deploying Vortex-x files..."
+    mkdir -p "$VORTEX_LIB" "$VORTEX_ETC"
     
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
+    # Sync project files
+    cp -r ./vpn_system/* "$VORTEX_LIB/"
+    
+    # Register CLI
+    ln -sf "$VORTEX_LIB/cli/vortex-x" "$VORTEX_BIN"
+    chmod +x "$VORTEX_BIN"
+    ln -sf "$VORTEX_BIN" "/usr/bin/vortex-x"
 
-    location /Vortex-x {
-        if (\$http_upgrade != "websocket") {
-            return 404;
-        }
-        proxy_redirect off;
-        proxy_pass http://127.0.0.1:10001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    # Deploy Configs (Fail2ban)
+    if [ -d "/etc/fail2ban" ]; then
+        log_info "Configuring Fail2ban..."
+        cp "$VORTEX_LIB/configs/fail2ban/jail.local" "/etc/fail2ban/jail.local"
+        cp "$VORTEX_LIB/configs/fail2ban/filter.d/xray.conf" "/etc/fail2ban/filter.d/xray.conf"
+        systemctl restart fail2ban || true
+    fi
+}
+
+# --- Hardening ---
+apply_hardening() {
+    if [ "$IS_PROOT" = false ]; then
+        log_info "Applying system hardening..."
+        # Create non-root user for services
+        id -u vortex-x &>/dev/null || useradd -r -s /usr/sbin/nologin vortex-x
         
-        # Add these for stability
-        proxy_connect_timeout 60s;
-        proxy_read_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_buffering off;
-    }
-
-    location / {
-        root /var/www/html;
-        index index.html;
-    }
-}
-EOF
-    
-    # Create dummy web page
-    mkdir -p /var/www/html
-    echo "<h1>Vortex-x VPN Server is Ready</h1>" > /var/www/html/index.html
-    
-    nginx -t && systemctl restart nginx || log_warn "Nginx config test failed or systemctl not available."
-}
-
-# --- Main execution ---
-main() {
-    # Accept domain as first argument
-    ARG_DOMAIN=$1
-
-    if [ "$(id -u)" -ne 0 ]; then
-        log_error "This script must be run as root. Please use sudo."
+        # Directory permissions
+        chown -R vortex-x:vortex-x "$VORTEX_ETC"
+        chmod 750 "$VORTEX_ETC"
+        
+        # UFW basic setup
+        ufw allow 80/tcp
+        ufw allow 443/tcp
+        ufw allow ssh
+        
+        # Run Service Hardening
+        python3 "$VORTEX_LIB/scripts/harden_services.py"
+        
+        log_success "Hardening applied."
     fi
+}
 
-    check_environment
+# --- Setup Cron ---
+setup_cron() {
+    log_info "Setting up Cron Jobs for Monitoring..."
+    CRON_FILE="/etc/cron.d/vortex-x"
+    cat > "$CRON_FILE" <<EOF
+* * * * * root python3 $VORTEX_LIB/monitoring/traffic_monitor.py
+* * * * * root python3 $VORTEX_LIB/user_management/ip_limiter.py
+0 0 * * * root python3 $VORTEX_LIB/scripts/ssl_manager.py renew
+EOF
+    chmod 644 "$CRON_FILE"
+    systemctl restart cron || systemctl restart cronie
+}
+
+main() {
+    check_env
     detect_os
-    install_dependencies
-    install_certbot
-    setup_network_firewall
-    install_nginx
-    install_xray_core
     
     if [ "$IS_PROOT" = false ]; then
-        install_wireguard
-        install_openvpn
+        install_deps
+        deploy_files
+        apply_hardening
+        setup_cron
+        log_success "Vortex-x installed successfully!"
+        log_info "Type 'vortex-x' to start."
     else
-        log_info "Skipping WireGuard and OpenVPN installation due to PRoot environment."
+        log_warn "Installer skipped system execution due to PRoot environment."
+        log_info "Source files are ready in ./vpn_system"
     fi
-    
-    optimize_system
-    install_vpn_system
-    install_menu
-    setup_cron
-
-    # Final Permission Fix for Xray (Nobody User)
-    log_info "Applying recursive permission fixes for Xray & SSL..."
-    mkdir -p /usr/local/etc/xray
-    
-    # Traverse-able parent directories
-    chmod 755 /usr/local/etc
-    chmod 755 /etc/letsencrypt
-    chmod 755 /etc/letsencrypt/live
-    chmod 755 /etc/letsencrypt/archive
-    
-    # Xray Specific
-    chown -R nobody:nobody /usr/local/etc/xray
-    chmod 755 /usr/local/etc/xray
-    [ -f /usr/local/etc/xray/config.json ] && chmod 644 /usr/local/etc/xray/config.json
-
-    log_info "VPN system installation completed successfully."
-    
-    # --- Auto Initialization ---
-    echo ""
-    echo "--------------------------------------------------------"
-    echo "  SYSTEM INITIALIZATION & DOMAIN SETUP"
-    echo "--------------------------------------------------------"
-    
-    DOMAIN_NAME=""
-    if [ -n "$ARG_DOMAIN" ]; then
-        DOMAIN_NAME="$ARG_DOMAIN"
-        log_info "Using domain from argument: $DOMAIN_NAME"
-    else
-        read -p "Enter your Domain/Host (or leave empty to skip): " INPUT_VAL
-        if [ -n "$INPUT_VAL" ]; then
-            DOMAIN_NAME="$INPUT_VAL"
-        fi
-    fi
-    
-    if [ -n "$DOMAIN_NAME" ]; then
-        log_info "Verifying DNS for $DOMAIN_NAME..."
-            
-            # Get Public IP
-            PUBLIC_IP=$(curl -4 -s --max-time 5 https://api.ipify.org)
-            # Get Domain IP
-            DOMAIN_IP=$(getent hosts "$DOMAIN_NAME" | awk '{ print $1 }' | head -n 1)
-            
-            echo "  > Server Public IP : $PUBLIC_IP"
-            echo "  > Domain Resolve IP: ${DOMAIN_IP:-"Not Resolved"}"
-            
-            PROCEED_SSL=false
-            
-            if [ "$PUBLIC_IP" == "$DOMAIN_IP" ]; then
-                log_info "DNS Verified! Domain points to this server."
-                PROCEED_SSL=true
-            elif [ -z "$DOMAIN_IP" ]; then
-                log_warn "Domain could not be resolved. Please check your DNS settings."
-                read -p "Force proceed anyway? (SSL setup may fail) [y/n]: " FORCE
-                [[ "$FORCE" =~ ^[Yy]$ ]] && PROCEED_SSL=true
-            else
-                log_warn "IP Mismatch! Domain does not point to this server IP."
-                echo "    This is normal if you are using Cloudflare Proxy (Orange Cloud)."
-                echo "    Ensure your Cloudflare SSL/TLS setting is set to 'Full' or 'Strict'."
-                read -p "Proceed with SSL setup (Certbot)? [y/n]: " FORCE
-                [[ "$FORCE" =~ ^[Yy]$ ]] && PROCEED_SSL=true
-            fi
-            
-            if [ "$PROCEED_SSL" = true ]; then
-                log_info "Requesting SSL Certificate via Certbot..."
-                # Stop Nginx/Xray temporarily to free port 80
-                systemctl stop nginx || true
-                
-                # Check for certbot in PATH or common locations
-                CERTBOT_BIN=$(command -v certbot || which certbot || echo "/usr/bin/certbot")
-                
-                if [ -x "$CERTBOT_BIN" ]; then
-                    "$CERTBOT_BIN" certonly --standalone --preferred-challenges http --agree-tos --email admin@"$DOMAIN_NAME" -d "$DOMAIN_NAME" --non-interactive
-                else
-                    log_warn "Certbot binary not found. Attempting to run via python module correctly..."
-                    python3 -c "import certbot.main; certbot.main.main(['certonly', '--standalone', '--preferred-challenges', 'http', '--agree-tos', '--email', 'admin@$DOMAIN_NAME', '-d', '$DOMAIN_NAME', '--non-interactive'])"
-                fi
-                
-                                if [ $? -eq 0 ]; then
-                                    log_info "SSL Certificate obtained successfully!"
-                                    
-                                    CERT_DIR="/etc/ssl/certs/$DOMAIN_NAME"
-                                    mkdir -p "$CERT_DIR"
-                                    
-                                    LE_PATH="/etc/letsencrypt/live/$DOMAIN_NAME"
-                                    if [ -f "$LE_PATH/fullchain.pem" ]; then
-                                        ln -sf "$LE_PATH/fullchain.pem" "$CERT_DIR/fullchain.pem"
-                                        ln -sf "$LE_PATH/privkey.pem" "$CERT_DIR/privkey.pem"
-                                        
-                                        # Fix permissions so Xray (nobody/xray user) can read them
-                                        chmod 755 /etc/letsencrypt
-                                        chmod -R 755 /etc/letsencrypt/live/
-                                        chmod -R 755 /etc/letsencrypt/archive/
-                                        
-                                        log_info "Certificates linked and permissions fixed."
-                                    else
-                                        log_error "Certbot reported success but certificates not found in $LE_PATH"
-                                    fi                    
-                    # Restart Nginx
-                    systemctl start nginx || true
-                    
-                    # Run Init
-                    log_info "Initializing system configuration..."
-                    /usr/local/bin/vpn-ctl init -d "$DOMAIN_NAME"
-                    
-                    if [ $? -eq 0 ]; then
-                        log_info "System Initialized Successfully!"
-                        systemctl restart xray || true
-                        setup_nginx_config "$DOMAIN_NAME"
-                    else
-                        log_error "Initialization failed."
-                    fi
-                else
-                    log_error "Certbot failed to obtain SSL certificate. Check firewall (Port 80) and DNS."
-                    systemctl start nginx || true
-                fi
-            else
-                log_info "Skipping SSL and Initialization. You must fix DNS and run 'vpn-ctl init' later."
-            fi
-    else
-        log_info "Skipping initialization."
-        log_info "You MUST run 'vpn-ctl init -d yourdomain.com' manually before adding users."
-    fi
-
-    echo ""
-    log_info "Type 'menu' to start the management interface."
 }
 
-# Run the main function
 main "$@"

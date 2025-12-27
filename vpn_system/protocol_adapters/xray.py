@@ -1,0 +1,112 @@
+import json
+import os
+import subprocess
+from typing import Dict, Any, List
+
+class XrayAdapter:
+    def __init__(self, config_path: str = "/usr/local/etc/xray/config.json"):
+        self.config_path = config_path
+        self.config = self._load_default_config()
+
+    def _load_default_config(self) -> Dict[str, Any]:
+        if os.path.exists(self.config_path):
+            try:
+                with open(self.config_path, 'r') as f:
+                    return json.load(f)
+            except:
+                pass
+        
+        return {
+            "log": {"loglevel": "info"},
+            "api": {"tag": "api", "services": ["HandlerService", "StatsService"]},
+            "stats": {},
+            "policy": {
+                "levels": {"0": {"statsUserUplink": True, "statsUserDownlink": True}},
+                "system": {"statsInboundUplink": True, "statsInboundDownlink": True}
+            },
+            "inbounds": [
+                {
+                    "listen": "127.0.0.1",
+                    "port": 10085,
+                    "protocol": "dokodemo-door",
+                    "settings": {"address": "127.0.0.1"},
+                    "tag": "api"
+                }
+            ],
+            "outbounds": [
+                {"protocol": "freedom", "tag": "direct"},
+                {"protocol": "blackhole", "tag": "blocked"}
+            ],
+            "routing": {
+                "rules": [
+                    {"type": "field", "inboundTag": ["api"], "outboundTag": "api"},
+                    {"type": "field", "ip": ["geoip:private"], "outboundTag": "blocked"}
+                ]
+            }
+        }
+
+    def add_inbound(self, protocol: str, port: int, tag: str, settings: Dict, stream_settings: Dict):
+        inbound = {
+            "protocol": protocol,
+            "port": port,
+            "tag": tag,
+            "settings": settings,
+            "streamSettings": stream_settings,
+            "sniffing": {"enabled": True, "destOverride": ["http", "tls"]}
+        }
+        # Avoid duplicate tags
+        self.config["inbounds"] = [i for i in self.config["inbounds"] if i.get("tag") != tag]
+        self.config["inbounds"].append(inbound)
+
+    def save(self):
+        os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+        with open(self.config_path, 'w') as f:
+            json.dump(self.config, f, indent=4)
+        
+        # Hardening permission
+        try:
+            subprocess.run(["chown", "vortex-x:vortex-x", self.config_path], check=False)
+            os.chmod(self.config_path, 0o644)
+        except:
+            pass
+
+    def generate_vless_ws(self, port: int, path: str = "/vortex-vless"):
+        settings = {"clients": [], "decryption": "none"}
+        stream = {
+            "network": "ws",
+            "wsSettings": {"path": path}
+        }
+        self.add_inbound("vless", port, f"vless-ws-{port}", settings, stream)
+
+    def generate_vmess_ws(self, port: int, path: str = "/vortex-vmess"):
+        settings = {"clients": []}
+        stream = {
+            "network": "ws",
+            "wsSettings": {"path": path}
+        }
+        self.add_inbound("vmess", port, f"vmess-ws-{port}", settings, stream)
+
+    def generate_vless_h2(self, port: int, path: str = "/vortex-h2", host: str = ""):
+        """Generates VLESS with HTTP/2 (h2) transport."""
+        settings = {"clients": [], "decryption": "none"}
+        stream = {
+            "network": "h2",
+            "httpSettings": {
+                "path": path,
+                "host": [host] if host else []
+            }
+        }
+        self.add_inbound("vless", port, f"vless-h2-{port}", settings, stream)
+
+    def generate_vless_quic(self, port: int, security: str = "none", key: str = "", header_type: str = "none"):
+        """Generates VLESS with QUIC transport."""
+        settings = {"clients": [], "decryption": "none"}
+        stream = {
+            "network": "quic",
+            "quicSettings": {
+                "security": security,
+                "key": key,
+                "header": {"type": header_type}
+            }
+        }
+        self.add_inbound("vless", port, f"vless-quic-{port}", settings, stream)
