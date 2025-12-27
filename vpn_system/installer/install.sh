@@ -83,21 +83,9 @@ install_dependencies() {
 install_certbot() {
     log_info "Installing Certbot..."
     
-    if command -v certbot &> /dev/null; then
-        log_info "Certbot is already installed."
-        return
-    fi
-
-    # DEBUG: Find out what python pip3 is using
-    LOG_PIP_PATH=$(command -v pip3)
-    log_info "DEBUG: pip3 path: $LOG_PIP_PATH"
-    if [ -f "$LOG_PIP_PATH" ]; then
-        log_info "DEBUG: pip3 shebang: $(head -n 1 "$LOG_PIP_PATH")"
-    fi
-    log_info "DEBUG: pip3 version: $(pip3 --version)"
-
     case "$ID_LIKE" in
         *debian*|*ubuntu*)
+            apt-get update
             apt-get install -y certbot
             ;;
         *rhel*|*centos*|*fedora*|*almalinux*|*rocky*|*alinux*)
@@ -514,15 +502,17 @@ main() {
             
             if [ "$PROCEED_SSL" = true ]; then
                 log_info "Requesting SSL Certificate via Certbot..."
-                # Stop Nginx/Xray temporarily to free port 80 if needed, though --nginx plugin or --standalone is used
-                # We use --standalone to be safe and independent of nginx config state
+                # Stop Nginx/Xray temporarily to free port 80
                 systemctl stop nginx || true
                 
-                # Use command if available, otherwise python module
-                if command -v certbot &> /dev/null; then
-                    certbot certonly --standalone --preferred-challenges http --agree-tos --email admin@"$DOMAIN_NAME" -d "$DOMAIN_NAME" --non-interactive
+                # Check for certbot in PATH or common locations
+                CERTBOT_BIN=$(command -v certbot || which certbot || echo "/usr/bin/certbot")
+                
+                if [ -x "$CERTBOT_BIN" ]; then
+                    "$CERTBOT_BIN" certonly --standalone --preferred-challenges http --agree-tos --email admin@"$DOMAIN_NAME" -d "$DOMAIN_NAME" --non-interactive
                 else
-                    python3 -m certbot certonly --standalone --preferred-challenges http --agree-tos --email admin@"$DOMAIN_NAME" -d "$DOMAIN_NAME" --non-interactive
+                    log_warn "Certbot binary not found. Attempting to run via python module correctly..."
+                    python3 -c "import certbot.main; certbot.main.main(['certonly', '--standalone', '--preferred-challenges', 'http', '--agree-tos', '--email', 'admin@$DOMAIN_NAME', '-d', '$DOMAIN_NAME', '--non-interactive'])"
                 fi
                 
                 if [ $? -eq 0 ]; then
