@@ -557,9 +557,6 @@ main() {
             else
                 log_info "Skipping SSL and Initialization. You must fix DNS and run 'vpn-ctl init' later."
             fi
-        else
-            log_warn "Domain cannot be empty."
-        fi
     else
         log_info "Skipping initialization."
         log_info "You MUST run 'vpn-ctl init -d yourdomain.com' manually before adding users."
