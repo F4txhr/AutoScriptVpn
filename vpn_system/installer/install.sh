@@ -261,12 +261,29 @@ install_xray_core() {
         log_info "Xray Core is already installed."
     else
         log_info "Installing Xray Core..."
-        # Official Xray installation script
-        bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
-        if [ $? -eq 0 ]; then
-            log_info "Xray Core installed successfully."
+        
+        # Try main URL first, then fallback to mirror (ghproxy)
+        # We download the script to a file first to check success
+        XRAY_SCRIPT_URL="https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
+        XRAY_SCRIPT_MIRROR="https://ghproxy.net/https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh"
+        
+        curl -L -s -o install-xray.sh "$XRAY_SCRIPT_URL"
+        
+        if [ ! -s install-xray.sh ] || grep -q "Could not resolve" install-xray.sh; then
+            log_warn "Standard GitHub URL failed. Trying mirror..."
+            curl -L -s -o install-xray.sh "$XRAY_SCRIPT_MIRROR"
+        fi
+
+        if [ -s install-xray.sh ]; then
+            bash install-xray.sh @ install
+            if [ $? -eq 0 ]; then
+                log_info "Xray Core installed successfully."
+                rm -f install-xray.sh
+            else
+                log_error "Failed to execute Xray install script."
+            fi
         else
-            log_error "Failed to install Xray Core."
+            log_error "Failed to download Xray install script from both Main and Mirror URLs. Check internet connection."
         fi
     fi
 }
@@ -282,16 +299,23 @@ install_wireguard() {
                 apt-get install -y wireguard
                 ;;
             *rhel*|*centos*|*fedora*|*almalinux*|*rocky*|*alinux*)
-                $PKG_MANAGER install -y wireguard-tools
-                # On CentOS 7/8, elrepo might be needed for kmod-wireguard if kernel is old,
-                # but modern kernels have it built-in. We assume a relatively modern kernel or user handles repo.
+                # Force enable EPEL for wireguard-tools
+                $PKG_MANAGER install -y wireguard-tools --enablerepo=epel
                 ;;
         esac
         
         if command -v wg &> /dev/null; then
              log_info "WireGuard Tools installed successfully."
         else
-             log_error "Failed to install WireGuard Tools."
+             log_warn "WireGuard Tools installation failed via package manager. Attempting manual download of wg-quick (Partial Support)..."
+             # Fallback or strict error? 
+             # For production, we prefer strict error, but let's try to fix repo first.
+             $PKG_MANAGER makecache --refresh
+             $PKG_MANAGER install -y wireguard-tools --enablerepo=epel
+             
+             if ! command -v wg &> /dev/null; then
+                log_error "Failed to install WireGuard Tools. Ensure EPEL repo is working."
+             fi
         fi
     fi
 }
