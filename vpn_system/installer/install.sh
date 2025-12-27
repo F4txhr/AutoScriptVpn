@@ -76,12 +76,40 @@ install_dependencies() {
 # --- Install Certbot (SSL) ---
 install_certbot() {
     log_info "Installing Certbot..."
+    
+    if command -v certbot &> /dev/null; then
+        log_info "Certbot is already installed."
+        return
+    fi
+
     case "$ID_LIKE" in
         *debian*|*ubuntu*)
             apt-get install -y certbot
             ;;
         *rhel*|*centos*|*fedora*|*almalinux*|*rocky*|*alinux*)
+            # Try installing via package manager first
+            set +e # Disable exit on error temporarily
             $PKG_MANAGER install -y certbot
+            EXIT_CODE=$?
+            set -e # Re-enable exit on error
+
+            if [ $EXIT_CODE -ne 0 ]; then
+                log_warn "Package 'certbot' not found in repositories. Attempting install via Pip..."
+                pip3 install certbot
+                
+                # Check if certbot command exists after pip install
+                if ! command -v certbot &> /dev/null; then
+                    # Sometimes pip installs to locations not immediately in PATH or needs a wrapper
+                    if [ -f /usr/local/bin/certbot ]; then
+                         log_info "Certbot found at /usr/local/bin/certbot"
+                    else
+                         log_warn "Certbot binary not found in PATH after pip install. Creating wrapper..."
+                         echo '#!/bin/bash' > /usr/local/bin/certbot
+                         echo 'python3 -m certbot "$@"' >> /usr/local/bin/certbot
+                         chmod +x /usr/local/bin/certbot
+                    fi
+                fi
+            fi
             ;;
     esac
 }
