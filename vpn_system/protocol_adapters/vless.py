@@ -235,7 +235,7 @@ if __name__ == '__main__':
     my_host = {"domain": "test.com", "hostname": "server1"}
 
     # 2. Generate inbounds
-    vless_ws_tls = adapter.generate_inbound(443, "ws", tls=True, domain=my_host['domain'])
+    vless_ws_tls = adapter.generate_inbound(10001, "ws", tls=True, domain=my_host['domain'])
     vless_grpc_tls = adapter.generate_inbound(8443, "grpc", tls=True, domain=my_host['domain'])
 
     adapter.config["inbounds"].extend([vless_ws_tls, vless_grpc_tls])

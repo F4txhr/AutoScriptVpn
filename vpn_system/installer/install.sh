@@ -463,6 +463,60 @@ check_environment() {
     fi
 }
 
+# --- Nginx Configuration ---
+setup_nginx_config() {
+    local DOMAIN=$1
+    log_info "Configuring Nginx for $DOMAIN..."
+    
+    # Use standard Ubuntu/Debian paths
+    CONF_PATH="/etc/nginx/conf.d/vpn.conf"
+    mkdir -p /etc/nginx/conf.d/
+
+    cat > "$CONF_PATH" <<EOF
+server {
+    listen 80;
+    server_name $DOMAIN;
+    return 301 https://\$host\$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name $DOMAIN;
+
+    ssl_certificate /etc/ssl/certs/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/ssl/certs/$DOMAIN/privkey.pem;
+    
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location /Vortex-x {
+        if (\$http_upgrade != "websocket") {
+            return 404;
+        }
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:10001; # Internal Xray Port
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+
+    location / {
+        root /var/www/html;
+        index index.html;
+    }
+}
+EOF
+    
+    # Create dummy web page
+    mkdir -p /var/www/html
+    echo "<h1>Vortex-x VPN Server is Ready</h1>" > /var/www/html/index.html
+    
+    nginx -t && systemctl restart nginx || log_warn "Nginx config test failed or systemctl not available."
+}
+
 # --- Main execution ---
 main() {
     # Accept domain as first argument
@@ -579,6 +633,7 @@ main() {
                     
                     if [ $? -eq 0 ]; then
                         log_info "System Initialized Successfully!"
+                        setup_nginx_config "$DOMAIN_NAME"
                     else
                         log_error "Initialization failed."
                     fi
