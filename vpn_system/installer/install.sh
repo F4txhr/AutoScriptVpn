@@ -262,37 +262,42 @@ install_xray_core() {
     else
         log_info "Installing Xray Core..."
         
-        # Try main URL first, then fallback to mirror (ghproxy)
-        # We download the script to a file first to check success
-        XRAY_SCRIPT_URL="https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
-        XRAY_SCRIPT_MIRROR="https://ghproxy.net/https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh"
+        # List of mirrors for the installation script
+        MIRRORS=(
+            "https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
+            "https://ghproxy.net/https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh"
+            "https://raw.fastgit.org/XTLS/Xray-install/main/install-release.sh"
+        )
         
-        curl -L -s -o install-xray.sh "$XRAY_SCRIPT_URL"
-        
-        if [ ! -s install-xray.sh ] || grep -q "Could not resolve" install-xray.sh; then
-            log_warn "Standard GitHub URL failed. Trying mirror..."
-            curl -L -s -o install-xray.sh "$XRAY_SCRIPT_MIRROR"
-        fi
+        SUCCESS=false
+        for URL in "${MIRRORS[@]}"; do
+            log_info "Attempting to download installer from: $URL"
+            # Added timeout and removed -s to see progress
+            if curl -L --connect-timeout 10 --max-time 60 -o install-xray.sh "$URL"; then
+                if [ -s install-xray.sh ] && ! head -n 1 install-xray.sh | grep -q "^<"; then
+                    log_info "Download successful!"
+                    SUCCESS=true
+                    break
+                else
+                    log_warn "Downloaded file from $URL is invalid or empty."
+                    rm -f install-xray.sh
+                fi
+            else
+                log_warn "Failed to download from $URL"
+            fi
+        done
 
-        if [ -s install-xray.sh ]; then
-            # Check if file is a script (not HTML error)
-            if head -n 1 install-xray.sh | grep -q "^<"; then
-                log_error "Failed to download Xray script. The file appears to be HTML (likely an error page)."
+        if [ "$SUCCESS" = true ]; then
+            log_info "Executing Xray install script..."
+            if bash install-xray.sh install; then
+                log_info "Xray Core installed successfully."
                 rm -f install-xray.sh
             else
-                # Run the script. When running from file, $1 is the first argument.
-                # The original command 'bash -c "..." @ install' sets $1='install'.
-                # So we just run 'bash install-xray.sh install'.
-                bash install-xray.sh install
-                if [ $? -eq 0 ]; then
-                    log_info "Xray Core installed successfully."
-                    rm -f install-xray.sh
-                else
-                    log_error "Failed to execute Xray install script."
-                fi
+                log_error "Xray installation script execution failed."
+                rm -f install-xray.sh
             fi
         else
-            log_error "Failed to download Xray install script from both Main and Mirror URLs. Check internet connection."
+            log_error "Could not download Xray install script from any mirror. Please check your internet connection or DNS."
         fi
     fi
 }
