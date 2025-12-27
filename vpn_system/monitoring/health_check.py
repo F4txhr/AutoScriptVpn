@@ -44,6 +44,13 @@ def get_system_metrics() -> Dict[str, Any]:
 
 def get_service_status(service_name: str) -> str:
     """Checks the status of a systemd service."""
+    # Detect PRoot/Termux environment
+    is_proot = os.path.exists("/data/data/com.termux") or os.environ.get("PROOT_TMPDIR")
+    
+    # Hide unsupported services in PRoot to avoid confusion
+    if is_proot and service_name in ["wg-quick@wg0", "openvpn@server"]:
+        return "NOT_SUPPORTED (PRoot)"
+
     try:
         # We use `is-active` for a simple 'active' or 'inactive'/'failed' state
         result = subprocess.run(
@@ -103,7 +110,8 @@ def generate_report(metrics: Dict, services_status: Dict, health_score: float) -
 
     report.append("\n--- VPN Service Status ---")
     for service, status in services_status.items():
-        report.append(f"  {service}: {status}")
+        if "NOT_SUPPORTED" not in status:
+            report.append(f"  {service}: {status}")
 
     report.append("\n" + "="*30)
     return "\n".join(report)

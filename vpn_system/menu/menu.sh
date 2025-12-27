@@ -18,8 +18,18 @@ check_root() {
 show_header() {
     clear
     echo -e "${BLUE}======================================${NC}"
-    echo -e "           Vortex-x Vpn               ${NC}"
-    echo -e "======================================${NC}"
+    echo -e "${BLUE}           Vortex-x Vpn               ${NC}"
+    echo -e "${BLUE}======================================${NC}"
+    
+    # Show Registered Domain
+    DB_FILE="/usr/local/lib/vpn_system/db.json"
+    if [ -f "$DB_FILE" ]; then
+        DOMAIN=$(python3 -c "import json; data=json.load(open('$DB_FILE')); print(data['hosts'][0]['domain'] if data['hosts'] else 'Not Set')" 2>/dev/null)
+        SERVER_IP=$(python3 -c "import json; data=json.load(open('$DB_FILE')); print(data['hosts'][0]['ip'] if data['hosts'] else 'N/A')" 2>/dev/null)
+        echo -e "  Domain : ${GREEN}$DOMAIN${NC}"
+        echo -e "  IP     : ${GREEN}$SERVER_IP${NC}"
+        echo -e "${BLUE}======================================${NC}"
+    fi
 }
 
 wait_enter() {
