@@ -5,8 +5,8 @@ class NginxAdapter:
     def __init__(self, conf_dir: str = "/etc/nginx/conf.d"):
         self.conf_dir = conf_dir
 
-    def cleanup_conflicts(self):
-        """Removes default nginx configs that might cause server_name conflicts."""
+    def cleanup_conflicts(self, domain: str = ""):
+        """Removes default nginx configs and potentially conflicting domain configs."""
         defaults = [
             "/etc/nginx/conf.d/default.conf",
             "/etc/nginx/sites-enabled/default"
@@ -15,9 +15,23 @@ class NginxAdapter:
             if os.path.exists(path):
                 try: os.remove(path)
                 except: pass
+        
+        # If a specific domain is provided, ensure no other file in conf.d has it
+        if domain:
+            try:
+                conf_files = [f for f in os.listdir(self.conf_dir) if f.endswith(".conf")]
+                for f in conf_files:
+                    # If the file is not exactly {domain}.conf but contains the domain, it's a conflict
+                    if f != f"{domain}.conf":
+                        f_path = os.path.join(self.conf_dir, f)
+                        with open(f_path, 'r') as content:
+                            if domain in content.read():
+                                os.remove(f_path)
+            except:
+                pass
 
     def generate_vhost(self, domain: str, vless_port: int, vmess_port: int, trojan_port: int):
-        self.cleanup_conflicts()
+        self.cleanup_conflicts(domain)
         vhost_content = f"""
 server {{
     listen 80;

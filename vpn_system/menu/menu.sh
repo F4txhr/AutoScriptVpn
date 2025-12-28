@@ -64,10 +64,7 @@ while true; do
 
     case $choice in
         1) 
-            clear
-            python3 "$LIB_PATH/monitoring/traffic_monitor.py" # Or detailed status
-            echo -e "Feature: Real-time Traffic Monitor (Check log: /var/log/vortex-x)"
-            read -p "Press Enter..." 
+            python3 "$LIB_PATH/monitoring/traffic_viewer.py"
             ;;
         2) 
             echo -e "\n--- User Management ---"
@@ -88,14 +85,41 @@ while true; do
             read -p "Press Enter..."
             ;;
         3)
-            echo -e "\n--- Protocol Status ---"
-            systemctl status xray --no-pager
-            systemctl status nginx --no-pager
+            echo -e "\n${BLUE}==================================================${NC}"
+            echo -e "           VORTEX-X SERVICE STATUS                "
+            echo -e "${BLUE}==================================================${NC}"
+            
+            services=("xray" "nginx" "crond" "firewalld")
+            for svc in "${services[@]}"; do
+                if systemctl is-active --quiet "$svc"; then
+                    echo -e "  $svc : ${GREEN}RUNNING${NC}"
+                else
+                    echo -e "  $svc : ${RED}STOPPED / FAILED${NC}"
+                fi
+            done
+            
+            echo -e "${BLUE}--------------------------------------------------${NC}"
+            echo -e "Press [L] for Detailed Logs or Enter to return."
+            read -p "Option: " log_opt
+            if [[ "$log_opt" =~ ^[Ll]$ ]]; then
+                echo -e "\n--- Xray Logs (Last 20 lines) ---"
+                tail -n 20 /var/log/xray/access.log 2>/dev/null || journalctl -u xray -n 20 --no-pager
+                echo -e "\n--- Nginx Status ---"
+                nginx -t
+            fi
             read -p "Press Enter..."
             ;;
         4)
-            echo -e "\n--- Firewall Status ---"
+            echo -e "\n${BLUE}==================================================${NC}"
+            echo -e "           VORTEX-X FIREWALL STATUS               "
+            echo -e "${BLUE}==================================================${NC}"
             if command -v firewall-cmd &> /dev/null; then
+                MASQ=$(firewall-cmd --query-masquerade)
+                echo -e "  IP Masquerade (NAT) : $([[ "$MASQ" == "yes" ]] && echo -e "${GREEN}ENABLED${NC}" || echo -e "${RED}DISABLED (Critical for VPN)${NC}")"
+                echo -e "  Allowed Services    : $(firewall-cmd --list-services)"
+                echo -e "  Allowed Ports       : $(firewall-cmd --list-ports)"
+                echo -e "${BLUE}--------------------------------------------------${NC}"
+                echo -e "Detailed Firewalld Output:"
                 firewall-cmd --list-all
             else
                 ufw status verbose

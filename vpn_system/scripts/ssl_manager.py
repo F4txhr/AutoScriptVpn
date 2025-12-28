@@ -58,5 +58,33 @@ class SSLManager:
         result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         if result.returncode == 0:
             # Simple parsing of date format 'notAfter=Mar 27 14:49:19 2026 GMT'
-            return result.stdout.strip().split('=')[1]
+            try:
+                return result.stdout.strip().split('=')[1]
+            except:
+                return "Error Parsing"
         return "Unknown"
+
+if __name__ == "__main__":
+    import sys
+    import json
+    
+    # Load domain from DB
+    DB_PATH = "/usr/local/etc/vortex-x/db.json"
+    domain = "yourdomain.com"
+    if os.path.exists(DB_PATH):
+        try:
+            with open(DB_PATH, 'r') as f:
+                data = json.load(f)
+                domain = data.get("settings", {}).get("domain", domain)
+        except: pass
+    
+    manager = SSLManager(domain)
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "check":
+            expiry = manager.check_expiry()
+            print(f"Domain: {domain}")
+            print(f"SSL Status: {expiry}")
+        elif sys.argv[1] == "renew":
+            manager.issue_cert()
+    else:
+        print("Usage: ssl_manager.py [check|renew]")

@@ -29,13 +29,32 @@ class SystemAuditor:
                     self.issues.append(f"Missing File: {name} at {path}")
 
     def check_services(self):
-        services = ["nginx", "xray", "fail2ban", "cron"] # Firewall checked separately
-        for svc in services:
+        # Nginx, Xray are core. Cron/Crond depends on OS.
+        core_services = ["nginx", "xray"]
+        for svc in core_services:
             res = subprocess.run(["systemctl", "is-active", svc], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
             if res.returncode == 0 and res.stdout.strip() == "active":
                 self.passed.append(f"Service Active: {svc}")
             else:
                 self.issues.append(f"Service Inactive/Missing: {svc}")
+
+        # Check Cron or Crond
+        cron_ok = False
+        for svc in ["cron", "crond", "cronie"]:
+            res = subprocess.run(["systemctl", "is-active", svc], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+            if res.returncode == 0 and res.stdout.strip() == "active":
+                self.passed.append(f"Service Active (Cron): {svc}")
+                cron_ok = True
+                break
+        if not cron_ok:
+            self.issues.append("Service Inactive/Missing: Cron Scheduler")
+
+        # Optional Services
+        res = subprocess.run(["systemctl", "is-active", "fail2ban"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        if res.returncode == 0 and res.stdout.strip() == "active":
+            self.passed.append("Service Active: fail2ban")
+        else:
+            self.warnings.append("Service Inactive: fail2ban (Recommended for security)")
 
     def check_security(self):
         # SSH Hardening

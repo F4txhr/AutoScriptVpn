@@ -149,6 +149,9 @@ apply_hardening() {
         # Directory permissions
         chown -R vortex-x:vortex-x "$VORTEX_ETC"
         chmod 750 "$VORTEX_ETC"
+        if [ -f "$VORTEX_ETC/db.json" ]; then
+            chmod 600 "$VORTEX_ETC/db.json"
+        fi
         
         # Firewall setup (Detect UFW or Firewalld)
         if command -v ufw &> /dev/null; then
@@ -164,6 +167,8 @@ apply_hardening() {
             firewall-cmd --permanent --add-service=http
             firewall-cmd --permanent --add-service=https
             firewall-cmd --permanent --add-service=ssh
+            # Enable Masquerade for VPN Tunneling
+            firewall-cmd --permanent --add-masquerade
             firewall-cmd --reload
         else
             log_warn "No supported firewall manager found (ufw/firewalld). Ports might be closed."
