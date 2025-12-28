@@ -10,7 +10,7 @@ class XrayAdapter:
         # Ensure log section exists
         if "log" not in self.config:
             self.config["log"] = {}
-        self.config["log"]["loglevel"] = "info"
+        self.config["log"]["loglevel"] = "debug"
         self.config["log"]["access"] = "/var/log/xray/access.log"
         self.config["log"]["error"] = "/var/log/xray/error.log"
 

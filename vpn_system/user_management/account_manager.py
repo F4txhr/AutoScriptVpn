@@ -159,7 +159,7 @@ PersistentKeepalive = 25
         import base64
         import urllib.parse
         domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
-        auth = base64.b64encode(f"aes-256-gcm:{user_dict['uuid']}".encode()).decode().rstrip("=")
+        auth = base64.b64encode(f"aes-256-gcm:{user_dict['uuid']}".encode()).decode()
         plugin_opts = f"v2ray-plugin;path=/vortex-ss;host={domain};tls"
         encoded_opts = urllib.parse.quote(plugin_opts)
         return f"ss://{auth}@{domain}:443?plugin={encoded_opts}#{user_dict['username']}"
