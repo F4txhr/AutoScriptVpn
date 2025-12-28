@@ -129,3 +129,25 @@ class XrayAdapter:
             }
         }
         self.add_inbound("vless", port, f"vless-quic-{port}", settings, stream)
+
+    def generate_trojan_ws(self, port: int, path: str = "/vortex-trojan"):
+        """Generates Trojan with WebSocket transport."""
+        settings = {"clients": []}
+        stream = {
+            "network": "ws",
+            "wsSettings": {"path": path}
+        }
+        self.add_inbound("trojan", port, f"trojan-ws-{port}", settings, stream)
+
+    def generate_ss_ws(self, port: int, path: str = "/vortex-ss"):
+        """Generates Shadowsocks with WebSocket transport."""
+        settings = {
+            "clients": [],
+            "method": "aes-256-gcm",
+            "network": "tcp,udp"
+        }
+        stream = {
+            "network": "ws",
+            "wsSettings": {"path": path}
+        }
+        self.add_inbound("shadowsocks", port, f"ss-ws-{port}", settings, stream)

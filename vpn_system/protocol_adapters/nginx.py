@@ -30,8 +30,23 @@ class NginxAdapter:
             except:
                 pass
 
-    def generate_vhost(self, domain: str, vless_port: int, vmess_port: int, trojan_port: int):
+    def generate_vhost(self, domain: str, vless_port: int, vmess_port: int, trojan_port: int, ss_port: int = 0):
         self.cleanup_conflicts(domain)
+        
+        # Location for Shadowsocks if port provided
+        ss_location = ""
+        if ss_port > 0:
+            ss_location = f"""
+    location /vortex-ss {{
+        if ($http_upgrade != "websocket") {{ return 404; }}
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:{ss_port};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }}"""
+
         vhost_content = f"""
 server {{
     listen 80;
@@ -52,9 +67,7 @@ server {{
 
     # VLESS WebSocket
     location /vortex-vless {{
-        if ($http_upgrade != "websocket") {{
-            return 404;
-        }}
+        if ($http_upgrade != "websocket") {{ return 404; }}
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{vless_port};
         proxy_http_version 1.1;
@@ -65,9 +78,7 @@ server {{
 
     # VMESS WebSocket
     location /vortex-vmess {{
-        if ($http_upgrade != "websocket") {{
-            return 404;
-        }}
+        if ($http_upgrade != "websocket") {{ return 404; }}
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{vmess_port};
         proxy_http_version 1.1;
@@ -76,16 +87,25 @@ server {{
         proxy_set_header Host $host;
     }}
 
+    # Trojan WebSocket
+    location /vortex-trojan {{
+        if ($http_upgrade != "websocket") {{ return 404; }}
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:{trojan_port};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }}
+    {ss_location}
+
     # VLESS gRPC (Advanced Transport)
-    location /vortex-grpc {{
-        if ($request_method != "POST") {{
-            return 404;
-        }}
+    location /Vortex-x {{
+        if ($request_method != "POST") {{ return 404; }}
         client_max_body_size 0;
-        client_body_timeout 1h;
         grpc_read_timeout 1h;
         grpc_send_timeout 1h;
-        grpc_pass grpc://127.0.0.1:{trojan_port}; # Reuse/Specific port for gRPC
+        grpc_pass grpc://127.0.0.1:10003;
     }}
 
     # Fallback / Fake Website

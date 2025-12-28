@@ -131,3 +131,19 @@ PersistentKeepalive = 25
         }
         encoded = base64.b64encode(json.dumps(vmess_config).encode()).decode()
         return f"vmess://{encoded}"
+
+    def generate_trojan_link(self, user_dict: dict) -> str:
+        domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
+        password = user_dict["uuid"]
+        name = user_dict["username"]
+        return f"trojan://{password}@{domain}:443?security=tls&sni={domain}&type=ws&path=%2Fvortex-trojan#{name}"
+
+    def generate_ss_link(self, user_dict: dict) -> str:
+        import base64
+        domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
+        method = "aes-256-gcm"
+        password = user_dict["uuid"]
+        name = user_dict["username"]
+        # Format: method:password
+        auth = base64.b64encode(f"{method}:{password}".encode()).decode()
+        return f"ss://{auth}@{domain}:443?plugin=v2ray-plugin%3Bpath%3D%2Fvortex-ss%3Bhost%3D{domain}%3Btls#{name}"

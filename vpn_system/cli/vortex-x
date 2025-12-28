@@ -71,15 +71,17 @@ def main():
         xray.generate_vless_ws(10001)
         xray.generate_vmess_ws(10002)
         xray.generate_vless_grpc(10003, service_name="Vortex-x")
+        xray.generate_trojan_ws(10004)
+        xray.generate_ss_ws(10005)
         xray.save()
-        print("[OK] Xray configuration generated (Clean WS + gRPC).")
+        print("[OK] Xray configuration generated (WS + gRPC + Trojan + SS).")
 
         # 3. Setup Nginx Virtual Host
         nginx = NginxAdapter()
         try:
-            # We map 10003 for the gRPC/H2 path
-            nginx.generate_vhost(args.domain, 10001, 10002, 10003)
-            print("[OK] Nginx virtual host configured with gRPC support.")
+            # Domain, vless, vmess, trojan, shadowsocks ports
+            nginx.generate_vhost(args.domain, 10001, 10002, 10004, 10005)
+            print("[OK] Nginx virtual host configured with full protocol support.")
         except Exception as e:
             print(f"[WARN] Nginx configuration failed: {e}")
 
@@ -117,6 +119,12 @@ def main():
                     print(manager.generate_vless_link(user))
                 elif args.protocol == "vmess":
                     print(manager.generate_vmess_link(user))
+                elif args.protocol == "trojan":
+                    print(manager.generate_trojan_link(user))
+                elif args.protocol == "shadowsocks":
+                    print(manager.generate_ss_link(user))
+                elif args.protocol == "wireguard":
+                    print(manager.generate_wg_config(user))
                 print("-----------------------\n")
             except Exception as e:
                 print(f"[ERROR] {e}")
