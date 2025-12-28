@@ -132,7 +132,11 @@ PersistentKeepalive = 25
                 
                 # SHADOWSOCKS
                 elif user.protocol == "shadowsocks":
-                    client = {"password": user.uuid, "email": user.username}
+                    client = {
+                        "password": user.uuid, 
+                        "email": user.username,
+                        "method": "aes-256-gcm" # Required for Shadowsocks
+                    }
                     if "clients" not in inbound["settings"]:
                         inbound["settings"]["clients"] = []
                     inbound["settings"]["clients"].append(client)

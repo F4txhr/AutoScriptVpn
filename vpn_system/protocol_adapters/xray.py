@@ -143,7 +143,6 @@ class XrayAdapter:
         """Generates Shadowsocks with WebSocket transport."""
         settings = {
             "clients": [],
-            "method": "aes-256-gcm",
             "network": "tcp,udp"
         }
         stream = {
