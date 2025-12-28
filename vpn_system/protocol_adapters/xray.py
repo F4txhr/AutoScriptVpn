@@ -7,12 +7,18 @@ class XrayAdapter:
     def __init__(self, config_path: str = "/usr/local/etc/xray/config.json"):
         self.config_path = config_path
         self.config = self._load_default_config()
-        # Ensure log section exists
-        if "log" not in self.config:
-            self.config["log"] = {}
-        self.config["log"]["loglevel"] = "debug"
-        self.config["log"]["access"] = "/var/log/xray/access.log"
-        self.config["log"]["error"] = "/var/log/xray/error.log"
+        # Enforce log configuration at the top level
+        log_config = {
+            "loglevel": "debug",
+            "access": "/var/log/xray/access.log",
+            "error": "/var/log/xray/error.log"
+        }
+        # Re-construct config to put log at the top
+        new_config = {"log": log_config}
+        for key, value in self.config.items():
+            if key != "log":
+                new_config[key] = value
+        self.config = new_config
 
     def _load_default_config(self) -> Dict[str, Any]:
         if os.path.exists(self.config_path):

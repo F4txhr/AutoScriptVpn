@@ -70,6 +70,11 @@ def harden_xray_service():
         # Force ownership to vortex-x
         subprocess.run(["chown", "-R", "vortex-x:vortex-x", d], check=False)
         subprocess.run(["chmod", "-R", "755", d], check=False) 
+        
+        # SELinux context fix for logs (Critical for RHEL/Alinux)
+        if d == XRAY_LOG_DIR and command_exists("chcon"):
+            print(f"[INFO] Setting SELinux context for {d}...")
+            subprocess.run(["chcon", "-R", "-t", "var_log_t", d], check=False)
     
     # Ensure log files exist and are writable
     for log_f in ["access.log", "error.log"]:
@@ -78,6 +83,11 @@ def harden_xray_service():
             with open(log_p, 'a'): os.utime(log_p, None)
         subprocess.run(["chown", "vortex-x:vortex-x", log_p], check=False)
         subprocess.run(["chmod", "664", log_p], check=False)
+        if command_exists("chcon"):
+            subprocess.run(["chcon", "-t", "var_log_t", log_p], check=False)
+
+def command_exists(cmd):
+    return shutil.which(cmd) is not None
 
     # Ensure binary is executable
     if os.path.exists(XRAY_BIN_PATH):
