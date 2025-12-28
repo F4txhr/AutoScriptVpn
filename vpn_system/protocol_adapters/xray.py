@@ -54,8 +54,11 @@ class XrayAdapter:
             "streamSettings": stream_settings,
             "sniffing": {"enabled": True, "destOverride": ["http", "tls"]}
         }
-        # Avoid duplicate tags
-        self.config["inbounds"] = [i for i in self.config["inbounds"] if i.get("tag") != tag]
+        # Remove any existing inbound with the same tag OR the same port
+        self.config["inbounds"] = [
+            i for i in self.config["inbounds"] 
+            if i.get("tag") != tag and i.get("port") != port
+        ]
         self.config["inbounds"].append(inbound)
 
     def save(self):
