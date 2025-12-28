@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+*.venv
+env/
+venv/
+
+# Configs & Logs
+vpn_system/configs/db.json
+vpn_system/configs/xray_config.json
+vpn_system/configs/wg0.conf
+vpn_system/configs/wireguard_clients/
+vpn_system/logs/
+
+# IDE files
+.idea/
+.vscode/

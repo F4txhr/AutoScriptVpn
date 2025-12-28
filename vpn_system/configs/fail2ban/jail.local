@@ -1,0 +1,29 @@
+[DEFAULT]
+ignoreip = 127.0.0.1/8 ::1
+bantime  = 3600
+findtime  = 600
+maxretry = 3
+
+[sshd]
+enabled = true
+port    = ssh
+logpath = %(sshd_log)s
+backend = %(sshd_backend)s
+
+[nginx-http-auth]
+enabled = true
+
+[nginx-badbots]
+enabled  = true
+port     = http,https
+filter   = nginx-badbots
+logpath  = /var/log/nginx/access.log
+maxretry = 2
+
+[xray-access]
+enabled = true
+port    = 80,443,10000:20000
+filter  = xray
+logpath = /var/log/xray/access.log
+maxretry = 5
+action  = iptables-allports[name=xray]

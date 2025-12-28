@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+import argparse
+import sys
+import os
+import time
+
+# Base path for Vortex-x library
+LIB_PATH = "/usr/local/lib/vortex-x"
+if not os.path.exists(LIB_PATH):
+    # Fallback to current directory for development
+    LIB_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+sys.path.append(LIB_PATH)
+
+from core.models import VortexDB
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Vortex-x VPN Platform CLI",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    
+    # Init command
+    init_p = subparsers.add_parser("init", help="Initialize system")
+    init_p.add_argument("-d", "--domain", required=True, help="Domain for SSL and VPN")
+
+    # Menu command
+    subparsers.add_parser("menu", help="Launch interactive menu")
+
+    # User command
+    user_p = subparsers.add_parser("user", help="Manage VPN users")
+    user_sub = user_p.add_subparsers(dest="user_cmd")
+    
+    add_u = user_sub.add_parser("add", help="Add new user")
+    add_u.add_argument("-u", "--username", required=True)
+    add_u.add_argument("-p", "--protocol", choices=["vless", "vmess", "trojan", "shadowsocks", "wireguard", "openvpn"], required=True)
+    
+    clash_p = user_sub.add_parser("clash", help="Export Clash Meta config")
+    clash_p.add_argument("-u", "--username", required=True)
+
+    # Backup command
+    backup_p = subparsers.add_parser("backup", help="Manage system backups")
+    backup_sub = backup_p.add_subparsers(dest="backup_cmd")
+    backup_sub.add_parser("create", help="Create a new backup")
+    restore_p = backup_sub.add_parser("restore", help="Restore from backup")
+    restore_p.add_argument("-f", "--file", required=True, help="Backup filename")
+
+    args = parser.parse_args()
+
+    if args.command == "menu":
+        os.system(f"bash {LIB_PATH}/menu/menu.sh")
+    elif args.command == "init":
+        print(f"Initializing Vortex-x with domain: {args.domain}")
+        
+        from protocol_adapters.xray import XrayAdapter
+        from protocol_adapters.nginx import NginxAdapter
+        from scripts.ssl_manager import SSLManager
+        
+        # 1. Issue SSL Certificate First
+        ssl = SSLManager(args.domain)
+        if not ssl.issue_cert():
+            print("[ERROR] SSL Issuance failed. Please check your domain DNS and port 80.")
+            return
+
+        # 2. Setup Xray Base Config
+        xray = XrayAdapter()
+        xray.clear_inbounds()
+        xray.generate_vless_ws(10001)
+        xray.generate_vmess_ws(10002)
+        xray.generate_vless_grpc(10003, service_name="vortex-grpc")
+        xray.generate_trojan_ws(10004)
+        xray.generate_ss_ws(10005)
+        xray.save()
+        print("[OK] Xray configuration generated (WS + gRPC + Trojan + SS).")
+
+        # 3. Setup Nginx Virtual Host
+        nginx = NginxAdapter()
+        try:
+            nginx.generate_vhost(args.domain, 10001, 10002, 10004, 10005)
+            print("[OK] Nginx virtual host configured with full protocol support.")
+        except Exception as e:
+            print(f"[WARN] Nginx configuration failed: {e}")
+
+        # 4. Save domain to DB
+        db = VortexDB()
+        db.data["settings"]["domain"] = args.domain
+        db.save()
+
+        # 5. Restore users to config
+        from user_management.account_manager import AccountManager
+        manager = AccountManager()
+        manager.sync_all_users()
+
+        print("[SUCCESS] Vortex-x system initialized.")
+    elif args.command == "backup":
+        from scripts.backup_manager import BackupManager
+        manager = BackupManager()
+        if args.backup_cmd == "create":
+            manager.create_backup()
+        elif args.backup_cmd == "restore":
+            manager.restore_backup(args.file)
+    elif args.command == "user":
+        if args.user_cmd == "clash":
+            from user_management.clash_generator import ClashGenerator
+            gen = ClashGenerator()
+            print(f"\n--- CLASH META CONFIG: {args.username} ---\n")
+            print(gen.generate_config(args.username))
+            print("------------------------------------------\n")
+        elif args.user_cmd == "add":
+            from user_management.account_manager import AccountManager
+            manager = AccountManager()
+            try:
+                user = manager.create_user(args.username, args.protocol)
+                print(f"\n[SUCCESS] User {args.username} created!")
+                print(f"Protocol : {args.protocol}")
+                print(f"UUID     : {user['uuid']}")
+                print(f"Expires  : {time.ctime(user['expires_at'])}")
+                
+                print("\n--- CONNECTION LINK ---")
+                if args.protocol == "vless":
+                    print(f"WS TLS   : {manager.generate_vless_link(user)}")
+                    print(f"gRPC TLS : {manager.generate_vless_grpc_link(user)}")
+                elif args.protocol == "vmess":
+                    print(f"WS TLS   : {manager.generate_vmess_link(user)}")
+                elif args.protocol == "trojan":
+                    print(f"WS TLS   : {manager.generate_trojan_link(user)}")
+                elif args.protocol == "shadowsocks":
+                    print(f"SS + WS  : {manager.generate_ss_link(user)}")
+                elif args.protocol == "wireguard":
+                    print(manager.generate_wg_config(user))
+                print("-----------------------\n")
+            except Exception as e:
+                print(f"[ERROR] {e}")
+    else:
+        parser.print_help()
+
+if __name__ == "__main__":
+    main()
