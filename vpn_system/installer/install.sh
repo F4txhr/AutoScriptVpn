@@ -167,6 +167,10 @@ apply_hardening() {
             firewall-cmd --permanent --add-service=http
             firewall-cmd --permanent --add-service=https
             firewall-cmd --permanent --add-service=ssh
+            # Enable standard VPN ports
+            firewall-cmd --permanent --add-port=51820/udp
+            firewall-cmd --permanent --add-port=1194/udp
+            firewall-cmd --permanent --add-port=1194/tcp
             # Enable Masquerade for VPN Tunneling
             firewall-cmd --permanent --add-masquerade
             firewall-cmd --reload
