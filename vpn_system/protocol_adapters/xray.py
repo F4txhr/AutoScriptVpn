@@ -7,12 +7,12 @@ class XrayAdapter:
     def __init__(self, config_path: str = "/usr/local/etc/xray/config.json"):
         self.config_path = config_path
         self.config = self._load_default_config()
-        # Enforce log configuration at runtime
-        self.config["log"] = {
-            "loglevel": "info",
-            "access": "/var/log/xray/access.log",
-            "error": "/var/log/xray/error.log"
-        }
+        # Ensure log section exists
+        if "log" not in self.config:
+            self.config["log"] = {}
+        self.config["log"]["loglevel"] = "info"
+        self.config["log"]["access"] = "/var/log/xray/access.log"
+        self.config["log"]["error"] = "/var/log/xray/error.log"
 
     def _load_default_config(self) -> Dict[str, Any]:
         if os.path.exists(self.config_path):
@@ -65,7 +65,6 @@ class XrayAdapter:
             "streamSettings": stream_settings,
             "sniffing": {"enabled": True, "destOverride": ["http", "tls"]}
         }
-        # Remove any existing inbound with the same tag OR the same port
         self.config["inbounds"] = [
             i for i in self.config["inbounds"] 
             if i.get("tag") != tag and i.get("port") != port
@@ -73,7 +72,6 @@ class XrayAdapter:
         self.config["inbounds"].append(inbound)
 
     def clear_inbounds(self):
-        """Removes all non-system inbounds (keeps only API)."""
         self.config["inbounds"] = [
             i for i in self.config["inbounds"] if i.get("tag") == "api"
         ]
@@ -86,19 +84,12 @@ class XrayAdapter:
         # Ensure log directory and files exist
         log_dir = "/var/log/xray"
         os.makedirs(log_dir, exist_ok=True)
-        for log_file in ["access.log", "error.log"]:
-            path = os.path.join(log_dir, log_file)
-            if not os.path.exists(path):
-                open(path, 'a').close()
         
-        # Hardening permission
+        # Permission handling is now centralized in harden_services.py
+        # but we do a quick check here too
         try:
             subprocess.run(["chown", "-R", "vortex-x:vortex-x", os.path.dirname(self.config_path)], check=False)
-            subprocess.run(["chown", "-R", "vortex-x:vortex-x", log_dir], check=False)
             os.chmod(self.config_path, 0o644)
-            # Log files should be writable by vortex-x
-            for log_file in ["access.log", "error.log"]:
-                os.chmod(os.path.join(log_dir, log_file), 0o644)
         except:
             pass
 
@@ -119,18 +110,14 @@ class XrayAdapter:
         self.add_inbound("vmess", port, f"vmess-ws-{port}", settings, stream)
 
     def generate_vless_grpc(self, port: int, service_name: str = "vortex-grpc"):
-        """Generates VLESS with gRPC transport (Compatible with Nginx grpc_pass)."""
         settings = {"clients": [], "decryption": "none"}
         stream = {
             "network": "grpc",
-            "grpcSettings": {
-                "serviceName": service_name
-            }
+            "grpcSettings": {"serviceName": service_name}
         }
         self.add_inbound("vless", port, f"vless-grpc-{port}", settings, stream)
 
     def generate_trojan_ws(self, port: int, path: str = "/vortex-trojan"):
-        """Generates Trojan with WebSocket transport."""
         settings = {"clients": []}
         stream = {
             "network": "ws",
@@ -139,12 +126,7 @@ class XrayAdapter:
         self.add_inbound("trojan", port, f"trojan-ws-{port}", settings, stream)
 
     def generate_ss_ws(self, port: int, path: str = "/vortex-ss"):
-        """Generates Shadowsocks with WebSocket transport."""
-        settings = {
-            "clients": [],
-            "method": "aes-256-gcm",
-            "network": "tcp,udp"
-        }
+        settings = {"clients": [], "method": "aes-256-gcm", "network": "tcp,udp"}
         stream = {
             "network": "ws",
             "wsSettings": {"path": path}
@@ -152,14 +134,9 @@ class XrayAdapter:
         self.add_inbound("shadowsocks", port, f"ss-ws-{port}", settings, stream)
 
     def generate_vless_quic(self, port: int, security: str = "none", key: str = "", header_type: str = "none"):
-        """Generates VLESS with QUIC transport."""
         settings = {"clients": [], "decryption": "none"}
         stream = {
             "network": "quic",
-            "quicSettings": {
-                "security": security,
-                "key": key,
-                "header": {"type": header_type}
-            }
+            "quicSettings": {"security": security, "key": key, "header": {"type": header_type}}
         }
         self.add_inbound("vless", port, f"vless-quic-{port}", settings, stream)

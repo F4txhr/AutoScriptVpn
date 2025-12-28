@@ -35,6 +35,12 @@ def install_xray_binary():
 def harden_xray_service():
     print("[INFO] Applying Xray Systemd Hardening...")
     
+    # Remove any conflicting drop-ins from other installers
+    dropin_dir = "/etc/systemd/system/xray.service.d"
+    if os.path.exists(dropin_dir):
+        print(f"[INFO] Removing conflicting drop-in directory: {dropin_dir}")
+        shutil.rmtree(dropin_dir)
+
     if not os.path.exists(SERVICE_SRC):
         # Fallback for dev environment
         dev_path = "./vpn_system/configs/systemd/xray.service"
@@ -51,19 +57,33 @@ def harden_xray_service():
     subprocess.run(["systemctl", "enable", "xray"], check=False)
     
     # Permissions
-    print("[INFO] Setting permissions...")
+    print("[INFO] Setting permissions for vortex-x user...")
     dirs = [XRAY_CONF_DIR, XRAY_LOG_DIR]
+    
+    # Ensure vortex-x user exists
+    subprocess.run(["id", "-u", "vortex-x"], capture_output=True, check=False)
+    if subprocess.run(["id", "-u", "vortex-x"], capture_output=True).returncode != 0:
+        subprocess.run(["useradd", "-r", "-s", "/usr/sbin/nologin", "vortex-x"], check=False)
+
     for d in dirs:
         os.makedirs(d, exist_ok=True)
+        # Force ownership to vortex-x
         subprocess.run(["chown", "-R", "vortex-x:vortex-x", d], check=False)
-        subprocess.run(["chmod", "750", d], check=False) # Only owner and group can read
+        subprocess.run(["chmod", "-R", "755", d], check=False) 
     
+    # Ensure log files exist and are writable
+    for log_f in ["access.log", "error.log"]:
+        log_p = os.path.join(XRAY_LOG_DIR, log_f)
+        if not os.path.exists(log_p):
+            with open(log_p, 'a'): os.utime(log_p, None)
+        subprocess.run(["chown", "vortex-x:vortex-x", log_p], check=False)
+        subprocess.run(["chmod", "664", log_p], check=False)
+
     # Ensure binary is executable
     if os.path.exists(XRAY_BIN_PATH):
-        # Allow vortex-x to bind ports (if systemd caps fail for some reason, though caps are preferred)
         subprocess.run(["setcap", "cap_net_bind_service=+ep", XRAY_BIN_PATH], check=False)
 
-    print("[SUCCESS] Xray service hardened and ready.")
+    print("[SUCCESS] Xray service hardened and log permissions fixed.")
 
 if __name__ == "__main__":
     if os.geteuid() != 0:
