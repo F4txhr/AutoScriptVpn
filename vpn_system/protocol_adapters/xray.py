@@ -61,6 +61,12 @@ class XrayAdapter:
         ]
         self.config["inbounds"].append(inbound)
 
+    def clear_inbounds(self):
+        """Removes all non-system inbounds (keeps only API)."""
+        self.config["inbounds"] = [
+            i for i in self.config["inbounds"] if i.get("tag") == "api"
+        ]
+
     def save(self):
         os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
         with open(self.config_path, 'w') as f:

@@ -67,11 +67,12 @@ def main():
 
         # 2. Setup Xray Base Config
         xray = XrayAdapter()
+        xray.clear_inbounds()
         xray.generate_vless_ws(10001)
         xray.generate_vmess_ws(10002)
         xray.generate_vless_grpc(10003, service_name="Vortex-x")
         xray.save()
-        print("[OK] Xray configuration generated (WS + gRPC).")
+        print("[OK] Xray configuration generated (Clean WS + gRPC).")
 
         # 3. Setup Nginx Virtual Host
         nginx = NginxAdapter()
