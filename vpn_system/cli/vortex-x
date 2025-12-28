@@ -57,8 +57,15 @@ def main():
         
         from protocol_adapters.xray import XrayAdapter
         from protocol_adapters.nginx import NginxAdapter
+        from scripts.ssl_manager import SSLManager
         
-        # 1. Setup Xray Base Config
+        # 1. Issue SSL Certificate First
+        ssl = SSLManager(args.domain)
+        if not ssl.issue_cert():
+            print("[ERROR] SSL Issuance failed. Please check your domain DNS and port 80.")
+            return
+
+        # 2. Setup Xray Base Config
         xray = XrayAdapter()
         xray.generate_vless_ws(10001)
         xray.generate_vmess_ws(10002)
@@ -66,16 +73,16 @@ def main():
         xray.save()
         print("[OK] Xray configuration generated (WS + H2).")
 
-        # 2. Setup Nginx Virtual Host
+        # 3. Setup Nginx Virtual Host
         nginx = NginxAdapter()
         try:
             # We map 10003 for the gRPC/H2 path
             nginx.generate_vhost(args.domain, 10001, 10002, 10003)
             print("[OK] Nginx virtual host configured with gRPC support.")
         except Exception as e:
-            print(f"[WARN] Nginx configuration failed (expected in development): {e}")
+            print(f"[WARN] Nginx configuration failed: {e}")
 
-        # 3. Save domain to DB
+        # 4. Save domain to DB
         db = VortexDB()
         db.data["settings"]["domain"] = args.domain
         db.save()

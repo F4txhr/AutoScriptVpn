@@ -96,6 +96,15 @@ deploy_files() {
         cp "$VORTEX_LIB/configs/fail2ban/filter.d/xray.conf" "/etc/fail2ban/filter.d/xray.conf"
         systemctl restart fail2ban || true
     fi
+
+    # Cleanup Default Nginx Configs
+    log_info "Cleaning up default Nginx configurations..."
+    rm -f /etc/nginx/conf.d/default.conf
+    rm -f /etc/nginx/sites-enabled/default
+    if [ -f "/etc/nginx/nginx.conf" ]; then
+        # Remove default server block if it exists inside nginx.conf (common in RHEL/Alinux)
+        sed -i '/server {/,/}/d' /etc/nginx/nginx.conf || true
+    fi
 }
 
 # --- Hardening ---
