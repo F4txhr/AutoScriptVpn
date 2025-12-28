@@ -17,7 +17,11 @@ class XrayAdapter:
                 pass
         
         return {
-            "log": {"loglevel": "info"},
+            "log": {
+                "loglevel": "info",
+                "access": "/var/log/xray/access.log",
+                "error": "/var/log/xray/error.log"
+            },
             "api": {"tag": "api", "services": ["HandlerService", "StatsService"]},
             "stats": {},
             "policy": {
