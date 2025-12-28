@@ -58,6 +58,12 @@ class AccountManager:
         
         self.db.add_user(new_user)
         self.xray.save()
+        
+        # Reload Xray to apply changes
+        if protocol in ["vless", "vmess", "trojan", "shadowsocks"]:
+            import subprocess
+            subprocess.run(["systemctl", "reload", "xray"], check=False)
+            
         return new_user.to_dict()
 
     def generate_wg_config(self, user_dict: dict) -> str:
