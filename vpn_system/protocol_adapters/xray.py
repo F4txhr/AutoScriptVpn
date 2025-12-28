@@ -86,17 +86,16 @@ class XrayAdapter:
         }
         self.add_inbound("vmess", port, f"vmess-ws-{port}", settings, stream)
 
-    def generate_vless_h2(self, port: int, path: str = "/vortex-h2", host: str = ""):
-        """Generates VLESS with HTTP/2 (h2) transport."""
+    def generate_vless_grpc(self, port: int, service_name: str = "Vortex-x"):
+        """Generates VLESS with gRPC transport (Compatible with Nginx grpc_pass)."""
         settings = {"clients": [], "decryption": "none"}
         stream = {
-            "network": "h2",
-            "httpSettings": {
-                "path": path,
-                "host": [host] if host else []
+            "network": "grpc",
+            "grpcSettings": {
+                "serviceName": service_name
             }
         }
-        self.add_inbound("vless", port, f"vless-h2-{port}", settings, stream)
+        self.add_inbound("vless", port, f"vless-grpc-{port}", settings, stream)
 
     def generate_vless_quic(self, port: int, security: str = "none", key: str = "", header_type: str = "none"):
         """Generates VLESS with QUIC transport."""
