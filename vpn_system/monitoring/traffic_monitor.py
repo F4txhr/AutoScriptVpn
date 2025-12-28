@@ -19,7 +19,7 @@ class TrafficMonitor:
         try:
             # We use subprocess to call xray api tool
             cmd = ["xray", "api", "statsquery", "--server", self.xray_api, "--pattern", "user"]
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
             if result.returncode == 0:
                 return json.loads(result.stdout)
         except:
@@ -29,7 +29,7 @@ class TrafficMonitor:
     def get_wg_stats(self):
         """Fetches WireGuard traffic and active peers."""
         try:
-            result = subprocess.run(["wg", "show", "wg0", "transfer"], capture_output=True, text=True)
+            result = subprocess.run(["wg", "show", "wg0", "transfer"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
             # Parse wg output
             return result.stdout
         except:

@@ -20,7 +20,7 @@ class SSLManager:
             "-d", self.domain, "--non-interactive"
         ]
         
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         
         if result.returncode == 0:
             print("[SUCCESS] SSL Certificate issued successfully.")
@@ -55,7 +55,7 @@ class SSLManager:
         
         # Get days left using openssl
         cmd = f"openssl x509 -enddate -noout -in {self.cert_path}"
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         if result.returncode == 0:
             # Simple parsing of date format 'notAfter=Mar 27 14:49:19 2026 GMT'
             return result.stdout.strip().split('=')[1]
