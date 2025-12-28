@@ -83,10 +83,20 @@ class XrayAdapter:
         with open(self.config_path, 'w') as f:
             json.dump(self.config, f, indent=4)
         
+        # Ensure log directory and files exist
+        log_dir = "/var/log/xray"
+        os.makedirs(log_dir, exist_ok=True)
+        for log_file in ["access.log", "error.log"]:
+            path = os.path.join(log_dir, log_file)
+            if not os.path.exists(path):
+                open(path, 'a').close()
+        
         # Hardening permission
         try:
-            subprocess.run(["chown", "vortex-x:vortex-x", self.config_path], check=False)
+            subprocess.run(["chown", "-R", "vortex-x:vortex-x", os.path.dirname(self.config_path)], check=False)
+            subprocess.run(["chown", "-R", "vortex-x:vortex-x", log_dir], check=False)
             os.chmod(self.config_path, 0o644)
+            subprocess.run(["chmod", "-R", "750", log_dir], check=False)
         except:
             pass
 
