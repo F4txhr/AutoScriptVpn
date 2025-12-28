@@ -1,34 +1,29 @@
 import os
 import subprocess
 
-class OpenVpnAdapter:
+class OpenVPNAdapter:
     def __init__(self, config_dir: str = "/etc/openvpn/server"):
         self.config_dir = config_dir
 
-    def generate_client_config(self, username: str, domain: str, port: int = 1194) -> str:
-        """
-        Generates a unified .ovpn file for the client.
-        In production, this would fetch actual CA/Cert/Key.
-        """
-        # Placeholder for certificates
-        ca_cert = "--- BEGIN CERTIFICATE ---\nCA_DATA
---- END CERTIFICATE ---"
-        client_cert = "--- BEGIN CERTIFICATE ---\nCLIENT_CERT_DATA
---- END CERTIFICATE ---"
-        client_key = "--- BEGIN PRIVATE KEY ---\nCLIENT_KEY_DATA
---- END PRIVATE KEY ---"
-        
-        config = f"""client
+    def generate_client_config(self, username: str, domain: str):
+        """Generates a standalone .ovpn file for the client."""
+        # This is a simplified template, assuming PKI is already setup
+        ca_cert = self._get_file_content("/etc/openvpn/server/ca.crt")
+        client_cert = self._get_file_content(f"/etc/openvpn/server/easy-rsa/pki/issued/{username}.crt")
+        client_key = self._get_file_content(f"/etc/openvpn/server/easy-rsa/pki/private/{username}.key")
+        tls_auth = self._get_file_content("/etc/openvpn/server/ta.key")
+
+        ovpn = f"""client
 dev tun
-proto udp
-remote {domain} {port}
+proto tcp
+remote {domain} 1194
 resolv-retry infinite
 nobind
 persist-key
 persist-tun
 remote-cert-tls server
-cipher AES-256-GCM
 auth SHA256
+cipher AES-256-GBC
 verb 3
 <ca>
 {ca_cert}
@@ -39,9 +34,15 @@ verb 3
 <key>
 {client_key}
 </key>
+<tls-auth>
+{tls_auth}
+</tls-auth>
+key-direction 1
 """
-        return config
+        return ovpn
 
-    def setup_server(self):
-        # Logic to install easy-rsa and generate server params
-        pass
+    def _get_file_content(self, path):
+        if os.path.exists(path):
+            with open(path, 'r') as f:
+                return f.read()
+        return f"MISSING_{path}"

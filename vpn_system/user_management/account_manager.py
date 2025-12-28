@@ -37,6 +37,12 @@ class AccountManager:
                 try: wg.add_peer(client_pub, client_ip)
                 except: pass
 
+        elif protocol == "openvpn":
+            # Call openvpn script to generate cert (simplified)
+            try:
+                subprocess.run(["/usr/local/lib/vortex-x/scripts/openvpn_helper.sh", "add", username], check=False)
+            except: pass
+
         # 4. Create User Object
         new_user = UserAccount(
             username=username,
