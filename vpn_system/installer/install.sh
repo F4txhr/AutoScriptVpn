@@ -183,6 +183,7 @@ setup_cron() {
     cat > "$CRON_FILE" <<EOF
 * * * * * root python3 $VORTEX_LIB/monitoring/traffic_monitor.py
 * * * * * root python3 $VORTEX_LIB/user_management/ip_limiter.py
+0 * * * * root python3 $VORTEX_LIB/user_management/expiry_manager.py
 0 0 * * * root python3 $VORTEX_LIB/scripts/ssl_manager.py renew
 EOF
     chmod 644 "$CRON_FILE"

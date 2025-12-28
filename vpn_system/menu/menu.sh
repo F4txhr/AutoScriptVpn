@@ -56,13 +56,14 @@ while true; do
     echo -e "  4. Network & Firewall"
     echo -e "  5. SSL & Domain"
     echo -e "  6. Backup & Restore"
-    echo -e "  7. System Info"
+    echo -e "  7. System Audit (Doctor)"
+    echo -e "  8. System Info"
     echo -e "  0. Exit"
     echo -e "${BLUE}--------------------------------------------------${NC}"
     read -p "  Select Option: " choice
 
-    case $option in
-        # Placeholder logic
+    case $choice in
+        7) python3 "$LIB_PATH/scripts/audit.py"; echo -e "\nPress Enter to return..."; read ;;
         0) exit 0 ;;
         *) echo -e "  ${RED}Feature coming soon!${NC}"; sleep 1 ;;
     esac
