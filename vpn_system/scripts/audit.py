@@ -31,7 +31,7 @@ class SystemAuditor:
     def check_services(self):
         services = ["nginx", "xray", "fail2ban", "cron"] # Firewall checked separately
         for svc in services:
-            res = subprocess.run(["systemctl", "is-active", svc], capture_output=True, text=True)
+            res = subprocess.run(["systemctl", "is-active", svc], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
             if res.returncode == 0 and res.stdout.strip() == "active":
                 self.passed.append(f"Service Active: {svc}")
             else:
@@ -54,7 +54,7 @@ class SystemAuditor:
         
         # Check UFW
         try:
-            res = subprocess.run(["ufw", "status"], capture_output=True, text=True)
+            res = subprocess.run(["ufw", "status"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
             if "active" in res.stdout:
                 self.passed.append("Firewall (UFW): Active")
                 firewall_active = True
@@ -64,7 +64,7 @@ class SystemAuditor:
         # Check Firewalld
         if not firewall_active:
             try:
-                res = subprocess.run(["firewall-cmd", "--state"], capture_output=True, text=True)
+                res = subprocess.run(["firewall-cmd", "--state"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                 if res.returncode == 0 and "running" in res.stdout:
                     self.passed.append("Firewall (Firewalld): Active")
                     firewall_active = True

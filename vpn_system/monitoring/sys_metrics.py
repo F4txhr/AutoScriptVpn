@@ -22,7 +22,7 @@ def check_service(service_name):
     try:
         # Check systemd status
         cmd = ["systemctl", "is-active", service_name]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         if result.returncode == 0 and result.stdout.strip() == "active":
             return "Active"
         else:
@@ -37,7 +37,7 @@ def get_ssl_days_left(domain):
     
     try:
         cmd = f"openssl x509 -enddate -noout -in {cert_path}"
-        res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        res = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         if res.returncode == 0:
             # Output format: notAfter=Mar 27 14:49:19 2026 GMT
             date_str = res.stdout.strip().split('=')[1]
