@@ -184,5 +184,6 @@ PersistentKeepalive = 25
         password = user_dict["uuid"]
         name = user_dict["username"]
         # Format: method:password
-        auth = base64.b64encode(f"{method}:{password}".encode()).decode()
+        auth = base64.b64encode(f"{method}:{password}".encode()).decode().rstrip("=")
+        # Using a more standard format for SS over WS
         return f"ss://{auth}@{domain}:443?plugin=v2ray-plugin%3Bpath%3D%2Fvortex-ss%3Bhost%3D{domain}%3Btls#{name}"
