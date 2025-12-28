@@ -85,6 +85,9 @@ server {{
         with open(conf_path, "w") as f:
             f.write(vhost_content)
         
-        # Reload nginx if possible
-        subprocess.run(["nginx", "-t"], check=False)
-        subprocess.run(["systemctl", "reload", "nginx"], check=False)
+        # Validate and Reload/Restart Nginx
+        if subprocess.run(["nginx", "-t"], check=False).returncode == 0:
+            if subprocess.run(["systemctl", "reload", "nginx"], check=False).returncode != 0:
+                subprocess.run(["systemctl", "restart", "nginx"], check=False)
+        else:
+            print("[ERROR] Nginx configuration test failed.")
