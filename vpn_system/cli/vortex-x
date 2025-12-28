@@ -50,7 +50,6 @@ def main():
     args = parser.parse_args()
 
     if args.command == "menu":
-        # Will call menu.sh later
         os.system(f"bash {LIB_PATH}/menu/menu.sh")
     elif args.command == "init":
         print(f"Initializing Vortex-x with domain: {args.domain}")
@@ -79,7 +78,6 @@ def main():
         # 3. Setup Nginx Virtual Host
         nginx = NginxAdapter()
         try:
-            # Domain, vless, vmess, trojan, shadowsocks ports
             nginx.generate_vhost(args.domain, 10001, 10002, 10004, 10005)
             print("[OK] Nginx virtual host configured with full protocol support.")
         except Exception as e:
@@ -122,13 +120,14 @@ def main():
                 
                 print("\n--- CONNECTION LINK ---")
                 if args.protocol == "vless":
-                    print(manager.generate_vless_link(user))
+                    print(f"WS TLS   : {manager.generate_vless_link(user)}")
+                    print(f"gRPC TLS : {manager.generate_vless_grpc_link(user)}")
                 elif args.protocol == "vmess":
-                    print(manager.generate_vmess_link(user))
+                    print(f"WS TLS   : {manager.generate_vmess_link(user)}")
                 elif args.protocol == "trojan":
-                    print(manager.generate_trojan_link(user))
+                    print(f"WS TLS   : {manager.generate_trojan_link(user)}")
                 elif args.protocol == "shadowsocks":
-                    print(manager.generate_ss_link(user))
+                    print(f"SS + WS  : {manager.generate_ss_link(user)}")
                 elif args.protocol == "wireguard":
                     print(manager.generate_wg_config(user))
                 print("-----------------------\n")

@@ -57,7 +57,7 @@ class AccountManager:
         self.db.add_user(new_user)
         self.xray.save()
         
-        # Restart Xray to apply changes (Essential for protocol structure)
+        # Restart Xray to apply changes
         if protocol in ["vless", "vmess", "trojan", "shadowsocks"]:
             import subprocess
             subprocess.run(["systemctl", "restart", "xray"], check=False)
@@ -134,9 +134,11 @@ PersistentKeepalive = 25
 
     def generate_vless_link(self, user_dict: dict) -> str:
         domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
-        uuid = user_dict["uuid"]
-        name = user_dict["username"]
-        return f"vless://{uuid}@{domain}:443?type=ws&encryption=none&security=tls&path=%2Fvortex-vless&sni={domain}#{name}"
+        return f"vless://{user_dict['uuid']}@{domain}:443?type=ws&encryption=none&security=tls&path=%2Fvortex-vless&sni={domain}#{user_dict['username']}"
+
+    def generate_vless_grpc_link(self, user_dict: dict) -> str:
+        domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
+        return f"vless://{user_dict['uuid']}@{domain}:443?mode=grpc&security=tls&encryption=none&serviceName=vortex-grpc&sni={domain}#{user_dict['username']}"
 
     def generate_vmess_link(self, user_dict: dict) -> str:
         import base64
@@ -155,10 +157,9 @@ PersistentKeepalive = 25
 
     def generate_ss_link(self, user_dict: dict) -> str:
         import base64
+        import urllib.parse
         domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
         auth = base64.b64encode(f"aes-256-gcm:{user_dict['uuid']}".encode()).decode().rstrip("=")
-        # Using v2ray-plugin format for better compatibility with HTTP Custom/Android
         plugin_opts = f"v2ray-plugin;path=/vortex-ss;host={domain};tls"
-        import urllib.parse
         encoded_opts = urllib.parse.quote(plugin_opts)
         return f"ss://{auth}@{domain}:443?plugin={encoded_opts}#{user_dict['username']}"

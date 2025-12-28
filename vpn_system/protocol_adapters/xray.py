@@ -7,7 +7,7 @@ class XrayAdapter:
     def __init__(self, config_path: str = "/usr/local/etc/xray/config.json"):
         self.config_path = config_path
         self.config = self._load_default_config()
-        # Enforce log configuration
+        # Enforce log configuration at runtime
         self.config["log"] = {
             "loglevel": "info",
             "access": "/var/log/xray/access.log",
@@ -59,7 +59,7 @@ class XrayAdapter:
         inbound = {
             "protocol": protocol,
             "port": port,
-            "listen": "127.0.0.1",  # Security: Only listen on localhost
+            "listen": "127.0.0.1",
             "tag": tag,
             "settings": settings,
             "streamSettings": stream_settings,
@@ -96,7 +96,9 @@ class XrayAdapter:
             subprocess.run(["chown", "-R", "vortex-x:vortex-x", os.path.dirname(self.config_path)], check=False)
             subprocess.run(["chown", "-R", "vortex-x:vortex-x", log_dir], check=False)
             os.chmod(self.config_path, 0o644)
-            subprocess.run(["chmod", "-R", "750", log_dir], check=False)
+            # Log files should be writable by vortex-x
+            for log_file in ["access.log", "error.log"]:
+                os.chmod(os.path.join(log_dir, log_file), 0o644)
         except:
             pass
 
@@ -116,7 +118,7 @@ class XrayAdapter:
         }
         self.add_inbound("vmess", port, f"vmess-ws-{port}", settings, stream)
 
-    def generate_vless_grpc(self, port: int, service_name: str = "Vortex-x"):
+    def generate_vless_grpc(self, port: int, service_name: str = "vortex-grpc"):
         """Generates VLESS with gRPC transport (Compatible with Nginx grpc_pass)."""
         settings = {"clients": [], "decryption": "none"}
         stream = {
@@ -126,19 +128,6 @@ class XrayAdapter:
             }
         }
         self.add_inbound("vless", port, f"vless-grpc-{port}", settings, stream)
-
-    def generate_vless_quic(self, port: int, security: str = "none", key: str = "", header_type: str = "none"):
-        """Generates VLESS with QUIC transport."""
-        settings = {"clients": [], "decryption": "none"}
-        stream = {
-            "network": "quic",
-            "quicSettings": {
-                "security": security,
-                "key": key,
-                "header": {"type": header_type}
-            }
-        }
-        self.add_inbound("vless", port, f"vless-quic-{port}", settings, stream)
 
     def generate_trojan_ws(self, port: int, path: str = "/vortex-trojan"):
         """Generates Trojan with WebSocket transport."""
@@ -153,7 +142,7 @@ class XrayAdapter:
         """Generates Shadowsocks with WebSocket transport."""
         settings = {
             "clients": [],
-            "method": "aes-256-gcm", # Default method
+            "method": "aes-256-gcm",
             "network": "tcp,udp"
         }
         stream = {
@@ -161,3 +150,16 @@ class XrayAdapter:
             "wsSettings": {"path": path}
         }
         self.add_inbound("shadowsocks", port, f"ss-ws-{port}", settings, stream)
+
+    def generate_vless_quic(self, port: int, security: str = "none", key: str = "", header_type: str = "none"):
+        """Generates VLESS with QUIC transport."""
+        settings = {"clients": [], "decryption": "none"}
+        stream = {
+            "network": "quic",
+            "quicSettings": {
+                "security": security,
+                "key": key,
+                "header": {"type": header_type}
+            }
+        }
+        self.add_inbound("vless", port, f"vless-quic-{port}", settings, stream)
