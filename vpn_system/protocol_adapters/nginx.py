@@ -100,7 +100,7 @@ server {{
     {ss_location}
 
     # VLESS gRPC (Advanced Transport)
-    location /Vortex-x {{
+    location /vortex-grpc {{
         if ($request_method != "POST") {{ return 404; }}
         client_max_body_size 0;
         grpc_read_timeout 1h;

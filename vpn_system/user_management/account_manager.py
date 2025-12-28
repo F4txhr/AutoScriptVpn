@@ -66,6 +66,29 @@ class AccountManager:
             
         return new_user.to_dict()
 
+    def sync_all_users(self):
+        """Syncs all users from DB to Xray configuration."""
+        print("[INFO] Syncing all users to Xray...")
+        # 1. Clear existing clients in config
+        for inbound in self.xray.config.get("inbounds", []):
+            if "settings" in inbound and "clients" in inbound["settings"]:
+                inbound["settings"]["clients"] = []
+        
+        # 2. Add each user from DB
+        for user_dict in self.db.data.get("users", []):
+            # Create a temporary UserAccount object to use the existing _add_to_xray logic
+            user = UserAccount(
+                username=user_dict["username"],
+                protocol=user_dict["protocol"],
+                uuid_str=user_dict.get("uuid")
+            )
+            self._add_to_xray(user)
+        
+        self.xray.save()
+        import subprocess
+        subprocess.run(["systemctl", "reload", "xray"], check=False)
+        print("[SUCCESS] Sync complete.")
+
     def generate_wg_config(self, user_dict: dict) -> str:
         creds = user_dict.get("credentials", {})
         domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")

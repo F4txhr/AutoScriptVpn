@@ -70,7 +70,7 @@ def main():
         xray.clear_inbounds()
         xray.generate_vless_ws(10001)
         xray.generate_vmess_ws(10002)
-        xray.generate_vless_grpc(10003, service_name="Vortex-x")
+        xray.generate_vless_grpc(10003, service_name="vortex-grpc")
         xray.generate_trojan_ws(10004)
         xray.generate_ss_ws(10005)
         xray.save()
@@ -89,6 +89,12 @@ def main():
         db = VortexDB()
         db.data["settings"]["domain"] = args.domain
         db.save()
+
+        # 5. Restore users to config
+        from user_management.account_manager import AccountManager
+        manager = AccountManager()
+        manager.sync_all_users()
+
         print("[SUCCESS] Vortex-x system initialized.")
     elif args.command == "backup":
         from scripts.backup_manager import BackupManager
