@@ -49,6 +49,7 @@ class XrayAdapter:
         inbound = {
             "protocol": protocol,
             "port": port,
+            "listen": "127.0.0.1",  # Security: Only listen on localhost
             "tag": tag,
             "settings": settings,
             "streamSettings": stream_settings,
