@@ -24,7 +24,6 @@ class AccountManager:
             from protocol_adapters.wireguard import WireguardAdapter
             wg = WireguardAdapter()
             client_priv, client_pub = wg.generate_keys()
-            # Simple IP allocation (next in line)
             user_count = len([u for u in self.db.data["users"] if u["protocol"] == "wireguard"])
             client_ip = f"10.0.0.{user_count + 2}/32"
             credentials = {
@@ -32,14 +31,13 @@ class AccountManager:
                 "public_key": client_pub,
                 "ip": client_ip
             }
-            # Only add to peer if on a real VPS (not PRoot)
             if not os.environ.get("PROOT_TMPDIR"):
                 try: wg.add_peer(client_pub, client_ip)
                 except: pass
 
         elif protocol == "openvpn":
-            # Call openvpn script to generate cert (simplified)
             try:
+                import subprocess
                 subprocess.run(["/usr/local/lib/vortex-x/scripts/openvpn_helper.sh", "add", username], check=False)
             except: pass
 
@@ -50,7 +48,7 @@ class AccountManager:
             expires_at=expires_at,
             password=credentials.get("password", "")
         )
-        new_user.credentials = credentials # Custom field for legacy
+        new_user.credentials = credentials 
 
         # 5. Sync with Xray if needed
         if protocol in ["vless", "vmess", "trojan", "shadowsocks"]:
@@ -59,35 +57,12 @@ class AccountManager:
         self.db.add_user(new_user)
         self.xray.save()
         
-        # Reload Xray to apply changes
+        # Restart Xray to apply changes (Essential for protocol structure)
         if protocol in ["vless", "vmess", "trojan", "shadowsocks"]:
             import subprocess
-            subprocess.run(["systemctl", "reload", "xray"], check=False)
+            subprocess.run(["systemctl", "restart", "xray"], check=False)
             
         return new_user.to_dict()
-
-    def sync_all_users(self):
-        """Syncs all users from DB to Xray configuration."""
-        print("[INFO] Syncing all users to Xray...")
-        # 1. Clear existing clients in config
-        for inbound in self.xray.config.get("inbounds", []):
-            if "settings" in inbound and "clients" in inbound["settings"]:
-                inbound["settings"]["clients"] = []
-        
-        # 2. Add each user from DB
-        for user_dict in self.db.data.get("users", []):
-            # Create a temporary UserAccount object to use the existing _add_to_xray logic
-            user = UserAccount(
-                username=user_dict["username"],
-                protocol=user_dict["protocol"],
-                uuid_str=user_dict.get("uuid")
-            )
-            self._add_to_xray(user)
-        
-        self.xray.save()
-        import subprocess
-        subprocess.run(["systemctl", "reload", "xray"], check=False)
-        print("[SUCCESS] Sync complete.")
 
     def generate_wg_config(self, user_dict: dict) -> str:
         creds = user_dict.get("credentials", {})
@@ -110,11 +85,30 @@ AllowedIPs = 0.0.0.0/0
 PersistentKeepalive = 25
 """
 
+    def sync_all_users(self):
+        """Syncs all users from DB to Xray configuration and restarts service."""
+        print("[INFO] Syncing all users to Xray...")
+        for inbound in self.xray.config.get("inbounds", []):
+            if "settings" in inbound and "clients" in inbound["settings"]:
+                inbound["settings"]["clients"] = []
+        
+        for user_dict in self.db.data.get("users", []):
+            user = UserAccount(
+                username=user_dict["username"],
+                protocol=user_dict["protocol"],
+                uuid_str=user_dict.get("uuid")
+            )
+            self._add_to_xray(user)
+        
+        self.xray.save()
+        import subprocess
+        subprocess.run(["systemctl", "restart", "xray"], check=False)
+        print("[SUCCESS] Sync complete.")
+
     def _add_to_xray(self, user: UserAccount) -> bool:
         found_inbound = False
         for inbound in self.xray.config.get("inbounds", []):
             if inbound.get("protocol") == user.protocol:
-                # VLESS / VMESS
                 if user.protocol in ["vless", "vmess"]:
                     client = {"id": user.uuid, "email": user.username, "level": 0}
                     if "clients" not in inbound["settings"]:
@@ -122,7 +116,6 @@ PersistentKeepalive = 25
                     inbound["settings"]["clients"].append(client)
                     found_inbound = True
                 
-                # TROJAN
                 elif user.protocol == "trojan":
                     client = {"password": user.uuid, "email": user.username, "level": 0}
                     if "clients" not in inbound["settings"]:
@@ -130,15 +123,10 @@ PersistentKeepalive = 25
                     inbound["settings"]["clients"].append(client)
                     found_inbound = True
                 
-                # SHADOWSOCKS
                 elif user.protocol == "shadowsocks":
-                    client = {
-                        "password": user.uuid, 
-                        "email": user.username
-                    }
+                    client = {"password": user.uuid, "email": user.username}
                     if "clients" not in inbound["settings"]:
                         inbound["settings"]["clients"] = []
-                    # Ensure method is set at settings level
                     inbound["settings"]["method"] = "aes-256-gcm"
                     inbound["settings"]["clients"].append(client)
                     found_inbound = True
@@ -148,43 +136,25 @@ PersistentKeepalive = 25
         domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
         uuid = user_dict["uuid"]
         name = user_dict["username"]
-        path = "/vortex-vless"
-        return f"vless://{uuid}@{domain}:443?type=ws&encryption=none&security=tls&path={path}&sni={domain}#{name}"
+        return f"vless://{uuid}@{domain}:443?type=ws&encryption=none&security=tls&path=%2Fvortex-vless&sni={domain}#{name}"
 
     def generate_vmess_link(self, user_dict: dict) -> str:
         import base64
         domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
         vmess_config = {
-            "v": "2",
-            "ps": user_dict["username"],
-            "add": domain,
-            "port": "443",
-            "id": user_dict["uuid"],
-            "aid": "0",
-            "scy": "auto",
-            "net": "ws",
-            "type": "none",
-            "host": domain,
-            "path": "/vortex-vmess",
-            "tls": "tls",
-            "sni": domain
+            "v": "2", "ps": user_dict["username"], "add": domain, "port": "443", "id": user_dict["uuid"],
+            "aid": "0", "scy": "auto", "net": "ws", "type": "none", "host": domain, "path": "/vortex-vmess",
+            "tls": "tls", "sni": domain
         }
         encoded = base64.b64encode(json.dumps(vmess_config).encode()).decode()
         return f"vmess://{encoded}"
 
     def generate_trojan_link(self, user_dict: dict) -> str:
         domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
-        password = user_dict["uuid"]
-        name = user_dict["username"]
-        return f"trojan://{password}@{domain}:443?security=tls&sni={domain}&type=ws&path=%2Fvortex-trojan#{name}"
+        return f"trojan://{user_dict['uuid']}@{domain}:443?security=tls&sni={domain}&type=ws&path=%2Fvortex-trojan#{user_dict['username']}"
 
     def generate_ss_link(self, user_dict: dict) -> str:
         import base64
         domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
-        method = "aes-256-gcm"
-        password = user_dict["uuid"]
-        name = user_dict["username"]
-        # Format: method:password
-        auth = base64.b64encode(f"{method}:{password}".encode()).decode().rstrip("=")
-        # Using a more standard URI format for SS+WS
-        return f"ss://{auth}@{domain}:443?type=ws&path=%2Fvortex-ss&host={domain}&security=tls&sni={domain}#{name}"
+        auth = base64.b64encode(f"aes-256-gcm:{user_dict['uuid']}".encode()).decode()
+        return f"ss://{auth}@{domain}:443?type=ws&path=%2Fvortex-ss&host={domain}&security=tls&sni={domain}#{user_dict['username']}"
