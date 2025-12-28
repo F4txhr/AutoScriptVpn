@@ -91,13 +91,25 @@ PersistentKeepalive = 25
         found_inbound = False
         for inbound in self.xray.config.get("inbounds", []):
             if inbound.get("protocol") == user.protocol:
-                # Add client based on protocol type
+                # VLESS / VMESS
                 if user.protocol in ["vless", "vmess"]:
-                    client = {
-                        "id": user.uuid,
-                        "email": user.username,
-                        "level": 0
-                    }
+                    client = {"id": user.uuid, "email": user.username, "level": 0}
+                    if "clients" not in inbound["settings"]:
+                        inbound["settings"]["clients"] = []
+                    inbound["settings"]["clients"].append(client)
+                    found_inbound = True
+                
+                # TROJAN
+                elif user.protocol == "trojan":
+                    client = {"password": user.uuid, "email": user.username, "level": 0}
+                    if "clients" not in inbound["settings"]:
+                        inbound["settings"]["clients"] = []
+                    inbound["settings"]["clients"].append(client)
+                    found_inbound = True
+                
+                # SHADOWSOCKS
+                elif user.protocol == "shadowsocks":
+                    client = {"password": user.uuid, "email": user.username}
                     if "clients" not in inbound["settings"]:
                         inbound["settings"]["clients"] = []
                     inbound["settings"]["clients"].append(client)
