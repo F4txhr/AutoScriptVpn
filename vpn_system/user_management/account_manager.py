@@ -153,22 +153,12 @@ PersistentKeepalive = 25
         domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
         return f"trojan://{user_dict['uuid']}@{domain}:443?security=tls&sni={domain}&type=ws&path=%2Fvortex-trojan#{user_dict['username']}"
 
-        def generate_ss_link(self, user_dict: dict) -> str:
-
-            import base64
-
-            domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
-
-            auth = base64.b64encode(f"aes-256-gcm:{user_dict['uuid']}".encode()).decode().rstrip("=")
-
-            # Using v2ray-plugin format for better compatibility with HTTP Custom/Android
-
-            plugin_opts = f"v2ray-plugin;path=/vortex-ss;host={domain};tls"
-
-            import urllib.parse
-
-            encoded_opts = urllib.parse.quote(plugin_opts)
-
-            return f"ss://{auth}@{domain}:443?plugin={encoded_opts}#{user_dict['username']}"
-
-    
+    def generate_ss_link(self, user_dict: dict) -> str:
+        import base64
+        domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
+        auth = base64.b64encode(f"aes-256-gcm:{user_dict['uuid']}".encode()).decode().rstrip("=")
+        # Using v2ray-plugin format for better compatibility with HTTP Custom/Android
+        plugin_opts = f"v2ray-plugin;path=/vortex-ss;host={domain};tls"
+        import urllib.parse
+        encoded_opts = urllib.parse.quote(plugin_opts)
+        return f"ss://{auth}@{domain}:443?plugin={encoded_opts}#{user_dict['username']}"
