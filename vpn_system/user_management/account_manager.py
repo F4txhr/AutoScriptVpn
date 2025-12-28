@@ -134,11 +134,12 @@ PersistentKeepalive = 25
                 elif user.protocol == "shadowsocks":
                     client = {
                         "password": user.uuid, 
-                        "email": user.username,
-                        "method": "aes-256-gcm" # Required for Shadowsocks
+                        "email": user.username
                     }
                     if "clients" not in inbound["settings"]:
                         inbound["settings"]["clients"] = []
+                    # Ensure method is set at settings level
+                    inbound["settings"]["method"] = "aes-256-gcm"
                     inbound["settings"]["clients"].append(client)
                     found_inbound = True
         return found_inbound
@@ -185,5 +186,5 @@ PersistentKeepalive = 25
         name = user_dict["username"]
         # Format: method:password
         auth = base64.b64encode(f"{method}:{password}".encode()).decode().rstrip("=")
-        # Using a more standard format for SS over WS
-        return f"ss://{auth}@{domain}:443?plugin=v2ray-plugin%3Bpath%3D%2Fvortex-ss%3Bhost%3D{domain}%3Btls#{name}"
+        # Using a more standard URI format for SS+WS
+        return f"ss://{auth}@{domain}:443?type=ws&path=%2Fvortex-ss&host={domain}&security=tls&sni={domain}#{name}"
