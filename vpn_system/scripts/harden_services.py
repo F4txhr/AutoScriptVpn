@@ -61,8 +61,8 @@ def harden_xray_service():
     dirs = [XRAY_CONF_DIR, XRAY_LOG_DIR]
     
     # Ensure vortex-x user exists
-    subprocess.run(["id", "-u", "vortex-x"], capture_output=True, check=False)
-    if subprocess.run(["id", "-u", "vortex-x"], capture_output=True).returncode != 0:
+    subprocess.run(["id", "-u", "vortex-x"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    if subprocess.run(["id", "-u", "vortex-x"], stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode != 0:
         subprocess.run(["useradd", "-r", "-s", "/usr/sbin/nologin", "vortex-x"], check=False)
 
     for d in dirs:
