@@ -7,7 +7,7 @@ class ClashGenerator:
         self.db = VortexDB()
         settings = self.db.data.get("settings", {})
         self.domain = settings.get("domain", "YOUR_DOMAIN")
-        self.sni = settings.get("sni")
+        self.sni = settings.get("sni") or self.domain
         self.host = settings.get("host")
 
     def generate_config(self, username: str) -> str:

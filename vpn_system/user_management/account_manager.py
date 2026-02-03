@@ -12,9 +12,10 @@ class AccountManager:
 
     def _get_transport_settings(self) -> dict:
         settings = self.db.data.get("settings", {})
+        domain = settings.get("domain", "YOUR_DOMAIN")
         return {
-            "domain": settings.get("domain", "YOUR_DOMAIN"),
-            "sni": settings.get("sni"),
+            "domain": domain,
+            "sni": settings.get("sni") or domain,
             "host": settings.get("host")
         }
 
@@ -164,7 +165,7 @@ PersistentKeepalive = 25
         settings = self._get_transport_settings()
         domain = settings["domain"]
         params = [
-            ("type", "grpc"),
+            ("mode", "grpc"),
             ("security", "tls"),
             ("encryption", "none"),
             ("serviceName", "vortex-grpc")
