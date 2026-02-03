@@ -44,6 +44,13 @@ Platform VPN profesional berbasis VPS dengan dukungan multi-protokol, keamanan t
 - [x] **Clash/Meta Config**: Auto-generate config client.
 - [x] **System Audit**: Tool diagnostik "System Doctor".
 
+## 🧭 FASE 8: Centralized Web Panel (Terpisah)
+- [ ] **Central Panel (Master)**: Dashboard web terpisah untuk memonitor multi-VPS.
+- [ ] **Node Agent**: Agen ringan di setiap VPS untuk kirim metrics dan terima perintah.
+- [ ] **API Contract**: Endpoint dan payload JSON standar Panel ↔ Agent.
+- [ ] **Security Layer**: API token/mTLS + rate limiting.
+- [ ] **MVP UI**: Login admin, daftar node, status, dan create user.
+
 ---
 **Author:** F4txhr
 **Project:** Vortex-x VPN Platform
