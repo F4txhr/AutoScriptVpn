@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vortex-x Central Panel</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar" id="sidebar">
+        <div class="brand">
+          <div class="logo">VX</div>
+          <div>
+            <h1>Vortex-x</h1>
+            <p>Central Panel</p>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active">Dashboard</button>
+          <button class="nav-item">Nodes</button>
+          <button class="nav-item">Users</button>
+          <button class="nav-item">Protocols</button>
+          <button class="nav-item">Traffic</button>
+          <button class="nav-item">Settings</button>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="chip">Online</div>
+          <div class="muted">v1.0.0</div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <button class="icon-button" id="toggleSidebar" aria-label="Toggle menu">
+            ☰
+          </button>
+          <div>
+            <h2>Dashboard</h2>
+            <p class="muted">Monitoring terpusat multi-VPS</p>
+          </div>
+          <div class="topbar-actions">
+            <button class="ghost">Sync</button>
+            <button class="primary">Create User</button>
+          </div>
+        </header>
+
+        <section class="stats">
+          <article class="card">
+            <h3>Total Nodes</h3>
+            <p class="stat" data-value="nodes">6</p>
+            <span class="trend up">+2 minggu ini</span>
+          </article>
+          <article class="card">
+            <h3>Online Users</h3>
+            <p class="stat" data-value="users">148</p>
+            <span class="trend up">+12 hari ini</span>
+          </article>
+          <article class="card">
+            <h3>Traffic (24h)</h3>
+            <p class="stat" data-value="traffic">1.2 TB</p>
+            <span class="trend down">-5% vs kemarin</span>
+          </article>
+          <article class="card">
+            <h3>Alerts</h3>
+            <p class="stat" data-value="alerts">2</p>
+            <span class="trend warn">SSL expiry</span>
+          </article>
+        </section>
+
+        <section class="grid">
+          <article class="card wide">
+            <div class="card-header">
+              <h3>Node Health</h3>
+              <div class="chip">Last sync 2m</div>
+            </div>
+            <div class="table">
+              <div class="table-row header">
+                <span>Node</span>
+                <span>Status</span>
+                <span>CPU</span>
+                <span>RAM</span>
+                <span>Traffic</span>
+              </div>
+              <div class="table-row">
+                <span>sg-01</span>
+                <span class="status ok">Online</span>
+                <span>32%</span>
+                <span>5.2 / 8 GB</span>
+                <span>210 GB</span>
+              </div>
+              <div class="table-row">
+                <span>id-02</span>
+                <span class="status ok">Online</span>
+                <span>24%</span>
+                <span>3.1 / 8 GB</span>
+                <span>145 GB</span>
+              </div>
+              <div class="table-row">
+                <span>jp-04</span>
+                <span class="status warn">Degraded</span>
+                <span>71%</span>
+                <span>6.9 / 8 GB</span>
+                <span>390 GB</span>
+              </div>
+              <div class="table-row">
+                <span>us-01</span>
+                <span class="status down">Offline</span>
+                <span>—</span>
+                <span>—</span>
+                <span>—</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-header">
+              <h3>Protocol Share</h3>
+              <span class="muted">30 hari terakhir</span>
+            </div>
+            <ul class="protocols">
+              <li>
+                <span>VLESS</span>
+                <div class="bar"><span style="width: 46%"></span></div>
+                <span>46%</span>
+              </li>
+              <li>
+                <span>VMess</span>
+                <div class="bar"><span style="width: 28%"></span></div>
+                <span>28%</span>
+              </li>
+              <li>
+                <span>Trojan</span>
+                <div class="bar"><span style="width: 16%"></span></div>
+                <span>16%</span>
+              </li>
+              <li>
+                <span>WireGuard</span>
+                <div class="bar"><span style="width: 10%"></span></div>
+                <span>10%</span>
+              </li>
+            </ul>
+          </article>
+
+          <article class="card">
+            <div class="card-header">
+              <h3>Alerts</h3>
+              <span class="muted">Butuh perhatian</span>
+            </div>
+            <div class="alert-list">
+              <div class="alert warn">
+                <strong>SSL Expiring</strong>
+                <p>sg-01 (3 hari lagi)</p>
+              </div>
+              <div class="alert danger">
+                <strong>Node Offline</strong>
+                <p>us-01 tidak merespon</p>
+              </div>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

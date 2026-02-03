@@ -194,6 +194,10 @@ WAJIB:
 🌐 WEB PANEL (OPSIONAL TAPI DIREKOMENDASIKAN)
 ==================================================
 
+Panel dibuat terpisah (centralized) agar bisa memonitor banyak VPS dalam satu
+dashboard. Setiap VPS menjalankan agent ringan untuk kirim metrics dan terima
+perintah dari panel pusat.
+
 - Dark mode (default)
 - Minimalist & modern
 - Admin login
