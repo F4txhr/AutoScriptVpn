@@ -19,11 +19,15 @@ class AccountManager:
             "address": address,
             "sni": settings.get("sni") or domain,
             "host": settings.get("host"),
-            "vless_path": "/vortex-vless",
-            "vmess_path": "/vortex-vmess",
-            "trojan_path": "/vortex-trojan",
-            "ss_path": "/vortex-ss",
-            "vless_grpc_service": "vortex-grpc"
+            "port": settings.get("port", 443),
+            "tls_insecure": settings.get("tls_insecure", False),
+            "vless_path": settings.get("vless_path", "/vortex-vless"),
+            "vmess_path": settings.get("vmess_path", "/vortex-vmess"),
+            "trojan_path": settings.get("trojan_path", "/vortex-trojan"),
+            "ss_path": settings.get("ss_path", "/vortex-ss"),
+            "vless_grpc_service": settings.get("vless_grpc_service", "vortex-grpc"),
+            "ss_method": settings.get("ss_method", "aes-256-gcm"),
+            "ss_plugin_opts": settings.get("ss_plugin_opts")
         }
 
     def _build_query(self, params: list) -> str:
@@ -165,8 +169,10 @@ PersistentKeepalive = 25
             params.append(("host", settings["host"]))
         if settings["sni"]:
             params.append(("sni", settings["sni"]))
+        if settings["tls_insecure"]:
+            params.append(("allowInsecure", "1"))
         query = self._build_query(params)
-        return f"vless://{user_dict['uuid']}@{domain}:443?{query}#{user_dict['username']}"
+        return f"vless://{user_dict['uuid']}@{domain}:{settings['port']}?{query}#{user_dict['username']}"
 
     def generate_vless_grpc_link(self, user_dict: dict) -> str:
         settings = self._get_transport_settings()
@@ -181,15 +187,17 @@ PersistentKeepalive = 25
             params.append(("authority", settings["host"]))
         if settings["sni"]:
             params.append(("sni", settings["sni"]))
+        if settings["tls_insecure"]:
+            params.append(("allowInsecure", "1"))
         query = self._build_query(params)
-        return f"vless://{user_dict['uuid']}@{domain}:443?{query}#{user_dict['username']}"
+        return f"vless://{user_dict['uuid']}@{domain}:{settings['port']}?{query}#{user_dict['username']}"
 
     def generate_vmess_link(self, user_dict: dict) -> str:
         import base64
         settings = self._get_transport_settings()
         domain = settings["address"]
         vmess_config = {
-            "v": "2", "ps": user_dict["username"], "add": domain, "port": "443", "id": user_dict["uuid"],
+            "v": "2", "ps": user_dict["username"], "add": domain, "port": str(settings["port"]), "id": user_dict["uuid"],
             "aid": "0", "scy": "auto", "net": "ws", "type": "none", "path": settings["vmess_path"],
             "tls": "tls"
         }
@@ -197,6 +205,8 @@ PersistentKeepalive = 25
             vmess_config["host"] = settings["host"]
         if settings["sni"]:
             vmess_config["sni"] = settings["sni"]
+        if settings["tls_insecure"]:
+            vmess_config["allowInsecure"] = 1
         encoded = base64.b64encode(json.dumps(vmess_config).encode()).decode()
         return f"vmess://{encoded}"
 
@@ -212,18 +222,23 @@ PersistentKeepalive = 25
             params.append(("host", settings["host"]))
         if settings["sni"]:
             params.append(("sni", settings["sni"]))
+        if settings["tls_insecure"]:
+            params.append(("allowInsecure", "1"))
         query = self._build_query(params)
-        return f"trojan://{user_dict['uuid']}@{domain}:443?{query}#{user_dict['username']}"
+        return f"trojan://{user_dict['uuid']}@{domain}:{settings['port']}?{query}#{user_dict['username']}"
 
     def generate_ss_link(self, user_dict: dict) -> str:
         import base64
         import urllib.parse
         settings = self._get_transport_settings()
         domain = settings["address"]
-        auth = base64.b64encode(f"aes-256-gcm:{user_dict['uuid']}".encode()).decode()
-        plugin_parts = ["v2ray-plugin", f"path={settings['ss_path']}", "tls"]
-        if settings["host"]:
-            plugin_parts.insert(2, f"host={settings['host']}")
-        plugin_opts = ";".join(plugin_parts)
+        auth = base64.b64encode(f"{settings['ss_method']}:{user_dict['uuid']}".encode()).decode()
+        if settings["ss_plugin_opts"]:
+            plugin_opts = settings["ss_plugin_opts"]
+        else:
+            plugin_parts = ["v2ray-plugin", f"path={settings['ss_path']}", "tls"]
+            if settings["host"]:
+                plugin_parts.insert(2, f"host={settings['host']}")
+            plugin_opts = ";".join(plugin_parts)
         encoded_opts = urllib.parse.quote(plugin_opts)
-        return f"ss://{auth}@{domain}:443?plugin={encoded_opts}#{user_dict['username']}"
+        return f"ss://{auth}@{domain}:{settings['port']}?plugin={encoded_opts}#{user_dict['username']}"

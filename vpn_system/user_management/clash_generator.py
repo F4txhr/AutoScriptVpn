@@ -10,8 +10,11 @@ class ClashGenerator:
         self.address = settings.get("connect_domain") or self.domain
         self.sni = settings.get("sni") or self.domain
         self.host = settings.get("host")
-        self.vless_path = "/vortex-vless"
-        self.vmess_path = "/vortex-vmess"
+        self.port = settings.get("port", 443)
+        self.tls_insecure = settings.get("tls_insecure", False)
+        self.vless_path = settings.get("vless_path", "/vortex-vless")
+        self.vmess_path = settings.get("vmess_path", "/vortex-vmess")
+        self.trojan_path = settings.get("trojan_path", "/vortex-trojan")
 
     def generate_config(self, username: str) -> str:
         user = self.db.get_user(username)
@@ -38,10 +41,10 @@ class ClashGenerator:
         proxy = {
             "name": user["username"],
             "server": self.address,
-            "port": 443,
+            "port": self.port,
             "udp": True,
             "tls": True,
-            "skip-cert-verify": False
+            "skip-cert-verify": self.tls_insecure
         }
         if self.sni:
             proxy["sni"] = self.sni
@@ -65,7 +68,9 @@ class ClashGenerator:
         elif user["protocol"] == "trojan":
             proxy.update({
                 "type": "trojan",
-                "password": user["uuid"] # Using uuid as password for trojan
+                "password": user["uuid"],
+                "network": "ws",
+                "ws-opts": {"path": self.trojan_path}
             })
 
         if self.host and proxy.get("network") == "ws":
