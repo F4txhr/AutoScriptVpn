@@ -80,8 +80,13 @@ def harden_xray_service():
     for d in dirs:
         os.makedirs(d, exist_ok=True)
         subprocess.run(["chown", "-R", "vortex-x:vortex-x", d], check=False)
-        subprocess.run(["chmod", "-R", "755", d], check=False) 
+        subprocess.run(["chmod", "750", d], check=False)
         apply_selinux_context(d)
+
+    config_path = os.path.join(XRAY_CONF_DIR, "config.json")
+    if os.path.exists(config_path):
+        subprocess.run(["chown", "vortex-x:vortex-x", config_path], check=False)
+        subprocess.run(["chmod", "644", config_path], check=False)
     
     # Specific Log Files
     for log_f in ["access.log", "error.log"]:
