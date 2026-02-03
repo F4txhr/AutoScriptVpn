@@ -23,7 +23,9 @@ persist-key
 persist-tun
 remote-cert-tls server
 auth SHA256
-cipher AES-256-GBC
+cipher AES-256-GCM
+data-ciphers AES-256-GCM:AES-256-CBC
+data-ciphers-fallback AES-256-CBC
 verb 3
 <ca>
 {ca_cert}
