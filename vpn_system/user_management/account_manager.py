@@ -13,10 +13,17 @@ class AccountManager:
     def _get_transport_settings(self) -> dict:
         settings = self.db.data.get("settings", {})
         domain = settings.get("domain", "YOUR_DOMAIN")
+        address = settings.get("connect_domain") or domain
         return {
             "domain": domain,
+            "address": address,
             "sni": settings.get("sni") or domain,
-            "host": settings.get("host")
+            "host": settings.get("host"),
+            "vless_path": settings.get("vless_path", "/vortex-vless"),
+            "vmess_path": settings.get("vmess_path", "/vortex-vmess"),
+            "trojan_path": settings.get("trojan_path", "/vortex-trojan"),
+            "ss_path": settings.get("ss_path", "/vortex-ss"),
+            "vless_grpc_service": settings.get("vless_grpc_service", "vortex-grpc")
         }
 
     def _build_query(self, params: list) -> str:
@@ -147,12 +154,12 @@ PersistentKeepalive = 25
 
     def generate_vless_link(self, user_dict: dict) -> str:
         settings = self._get_transport_settings()
-        domain = settings["domain"]
+        domain = settings["address"]
         params = [
             ("type", "ws"),
             ("encryption", "none"),
             ("security", "tls"),
-            ("path", quote("/vortex-vless", safe=""))
+            ("path", quote(settings["vless_path"], safe=""))
         ]
         if settings["host"]:
             params.append(("host", settings["host"]))
@@ -163,12 +170,12 @@ PersistentKeepalive = 25
 
     def generate_vless_grpc_link(self, user_dict: dict) -> str:
         settings = self._get_transport_settings()
-        domain = settings["domain"]
+        domain = settings["address"]
         params = [
             ("mode", "grpc"),
             ("security", "tls"),
             ("encryption", "none"),
-            ("serviceName", "vortex-grpc")
+            ("serviceName", settings["vless_grpc_service"])
         ]
         if settings["host"]:
             params.append(("authority", settings["host"]))
@@ -180,10 +187,10 @@ PersistentKeepalive = 25
     def generate_vmess_link(self, user_dict: dict) -> str:
         import base64
         settings = self._get_transport_settings()
-        domain = settings["domain"]
+        domain = settings["address"]
         vmess_config = {
             "v": "2", "ps": user_dict["username"], "add": domain, "port": "443", "id": user_dict["uuid"],
-            "aid": "0", "scy": "auto", "net": "ws", "type": "none", "path": "/vortex-vmess",
+            "aid": "0", "scy": "auto", "net": "ws", "type": "none", "path": settings["vmess_path"],
             "tls": "tls"
         }
         if settings["host"]:
@@ -195,11 +202,11 @@ PersistentKeepalive = 25
 
     def generate_trojan_link(self, user_dict: dict) -> str:
         settings = self._get_transport_settings()
-        domain = settings["domain"]
+        domain = settings["address"]
         params = [
             ("security", "tls"),
             ("type", "ws"),
-            ("path", quote("/vortex-trojan", safe=""))
+            ("path", quote(settings["trojan_path"], safe=""))
         ]
         if settings["host"]:
             params.append(("host", settings["host"]))
@@ -212,9 +219,9 @@ PersistentKeepalive = 25
         import base64
         import urllib.parse
         settings = self._get_transport_settings()
-        domain = settings["domain"]
+        domain = settings["address"]
         auth = base64.b64encode(f"aes-256-gcm:{user_dict['uuid']}".encode()).decode()
-        plugin_parts = ["v2ray-plugin", "path=/vortex-ss", "tls"]
+        plugin_parts = ["v2ray-plugin", f"path={settings['ss_path']}", "tls"]
         if settings["host"]:
             plugin_parts.insert(2, f"host={settings['host']}")
         plugin_opts = ";".join(plugin_parts)
