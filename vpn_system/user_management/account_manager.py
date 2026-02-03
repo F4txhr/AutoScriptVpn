@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from urllib.parse import quote, urlencode
 from core.models import VortexDB, UserAccount
 from protocol_adapters.xray import XrayAdapter
 
@@ -8,6 +9,17 @@ class AccountManager:
     def __init__(self):
         self.db = VortexDB()
         self.xray = XrayAdapter()
+
+    def _get_transport_settings(self) -> dict:
+        settings = self.db.data.get("settings", {})
+        return {
+            "domain": settings.get("domain", "YOUR_DOMAIN"),
+            "sni": settings.get("sni"),
+            "host": settings.get("host")
+        }
+
+    def _build_query(self, params: list) -> str:
+        return urlencode(params, safe="%")
 
     def create_user(self, username: str, protocol: str, days: int = 30) -> dict:
         # 1. Check if user already exists
@@ -133,33 +145,77 @@ PersistentKeepalive = 25
         return found_inbound
 
     def generate_vless_link(self, user_dict: dict) -> str:
-        domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
-        return f"vless://{user_dict['uuid']}@{domain}:443?type=ws&encryption=none&security=tls&path=%2Fvortex-vless&sni={domain}#{user_dict['username']}"
+        settings = self._get_transport_settings()
+        domain = settings["domain"]
+        params = [
+            ("type", "ws"),
+            ("encryption", "none"),
+            ("security", "tls"),
+            ("path", quote("/vortex-vless", safe=""))
+        ]
+        if settings["host"]:
+            params.append(("host", settings["host"]))
+        if settings["sni"]:
+            params.append(("sni", settings["sni"]))
+        query = self._build_query(params)
+        return f"vless://{user_dict['uuid']}@{domain}:443?{query}#{user_dict['username']}"
 
     def generate_vless_grpc_link(self, user_dict: dict) -> str:
-        domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
-        return f"vless://{user_dict['uuid']}@{domain}:443?mode=grpc&security=tls&encryption=none&serviceName=vortex-grpc&sni={domain}#{user_dict['username']}"
+        settings = self._get_transport_settings()
+        domain = settings["domain"]
+        params = [
+            ("type", "grpc"),
+            ("security", "tls"),
+            ("encryption", "none"),
+            ("serviceName", "vortex-grpc")
+        ]
+        if settings["host"]:
+            params.append(("authority", settings["host"]))
+        if settings["sni"]:
+            params.append(("sni", settings["sni"]))
+        query = self._build_query(params)
+        return f"vless://{user_dict['uuid']}@{domain}:443?{query}#{user_dict['username']}"
 
     def generate_vmess_link(self, user_dict: dict) -> str:
         import base64
-        domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
+        settings = self._get_transport_settings()
+        domain = settings["domain"]
         vmess_config = {
             "v": "2", "ps": user_dict["username"], "add": domain, "port": "443", "id": user_dict["uuid"],
-            "aid": "0", "scy": "auto", "net": "ws", "type": "none", "host": domain, "path": "/vortex-vmess",
-            "tls": "tls", "sni": domain
+            "aid": "0", "scy": "auto", "net": "ws", "type": "none", "path": "/vortex-vmess",
+            "tls": "tls"
         }
+        if settings["host"]:
+            vmess_config["host"] = settings["host"]
+        if settings["sni"]:
+            vmess_config["sni"] = settings["sni"]
         encoded = base64.b64encode(json.dumps(vmess_config).encode()).decode()
         return f"vmess://{encoded}"
 
     def generate_trojan_link(self, user_dict: dict) -> str:
-        domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
-        return f"trojan://{user_dict['uuid']}@{domain}:443?security=tls&sni={domain}&type=ws&path=%2Fvortex-trojan#{user_dict['username']}"
+        settings = self._get_transport_settings()
+        domain = settings["domain"]
+        params = [
+            ("security", "tls"),
+            ("type", "ws"),
+            ("path", quote("/vortex-trojan", safe=""))
+        ]
+        if settings["host"]:
+            params.append(("host", settings["host"]))
+        if settings["sni"]:
+            params.append(("sni", settings["sni"]))
+        query = self._build_query(params)
+        return f"trojan://{user_dict['uuid']}@{domain}:443?{query}#{user_dict['username']}"
 
     def generate_ss_link(self, user_dict: dict) -> str:
         import base64
         import urllib.parse
-        domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
+        settings = self._get_transport_settings()
+        domain = settings["domain"]
         auth = base64.b64encode(f"aes-256-gcm:{user_dict['uuid']}".encode()).decode()
-        plugin_opts = f"v2ray-plugin;path=/vortex-ss;host={domain};tls"
+        plugin_parts = ["v2ray-plugin", "path=/vortex-ss", "tls"]
+        if settings["host"]:
+            plugin_parts.insert(2, f"host={settings['host']}")
+        plugin_opts = ";".join(plugin_parts)
         encoded_opts = urllib.parse.quote(plugin_opts)
         return f"ss://{auth}@{domain}:443?plugin={encoded_opts}#{user_dict['username']}"

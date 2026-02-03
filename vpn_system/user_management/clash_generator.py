@@ -5,7 +5,10 @@ from core.models import VortexDB
 class ClashGenerator:
     def __init__(self):
         self.db = VortexDB()
-        self.domain = self.db.data["settings"].get("domain", "YOUR_DOMAIN")
+        settings = self.db.data.get("settings", {})
+        self.domain = settings.get("domain", "YOUR_DOMAIN")
+        self.sni = settings.get("sni")
+        self.host = settings.get("host")
 
     def generate_config(self, username: str) -> str:
         user = self.db.get_user(username)
@@ -35,9 +38,10 @@ class ClashGenerator:
             "port": 443,
             "udp": True,
             "tls": True,
-            "skip-cert-verify": False,
-            "sni": self.domain
+            "skip-cert-verify": False
         }
+        if self.sni:
+            proxy["sni"] = self.sni
 
         if user["protocol"] == "vless":
             proxy.update({
@@ -60,6 +64,9 @@ class ClashGenerator:
                 "type": "trojan",
                 "password": user["uuid"] # Using uuid as password for trojan
             })
+
+        if self.host and proxy.get("network") == "ws":
+            proxy["ws-opts"].setdefault("headers", {})["Host"] = self.host
 
         config["proxies"].append(proxy)
         return yaml.dump(config, default_flow_style=False)
