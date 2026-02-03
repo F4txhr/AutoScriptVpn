@@ -19,11 +19,11 @@ class AccountManager:
             "address": address,
             "sni": settings.get("sni") or domain,
             "host": settings.get("host"),
-            "vless_path": settings.get("vless_path", "/vortex-vless"),
-            "vmess_path": settings.get("vmess_path", "/vortex-vmess"),
-            "trojan_path": settings.get("trojan_path", "/vortex-trojan"),
-            "ss_path": settings.get("ss_path", "/vortex-ss"),
-            "vless_grpc_service": settings.get("vless_grpc_service", "vortex-grpc")
+            "vless_path": "/vortex-vless",
+            "vmess_path": "/vortex-vmess",
+            "trojan_path": "/vortex-trojan",
+            "ss_path": "/vortex-ss",
+            "vless_grpc_service": "vortex-grpc"
         }
 
     def _build_query(self, params: list) -> str:

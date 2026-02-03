@@ -10,8 +10,8 @@ class ClashGenerator:
         self.address = settings.get("connect_domain") or self.domain
         self.sni = settings.get("sni") or self.domain
         self.host = settings.get("host")
-        self.vless_path = settings.get("vless_path", "/vortex-vless")
-        self.vmess_path = settings.get("vmess_path", "/vortex-vmess")
+        self.vless_path = "/vortex-vless"
+        self.vmess_path = "/vortex-vmess"
 
     def generate_config(self, username: str) -> str:
         user = self.db.get_user(username)
