@@ -80,9 +80,9 @@ while true; do
                 read -p "Protocol (vless/vmess/trojan/shadowsocks/wireguard/openvpn): " proto
                 echo -e "\n${YELLOW}Bandwidth default (GB):${NC}"
                 echo "  Trial (1 hour): 2 GB"
-                echo "  3 days        : 128 GB"
-                echo "  7 days        : 256 GB"
-                echo "  14 days       : 384 GB"
+                echo "  3 days        : 64 GB"
+                echo "  7 days        : 128 GB"
+                echo "  14 days       : 256 GB"
                 echo "  30 days       : 512 GB"
                 read -p "Days (default 30, use 0 for trial): " days
                 read -p "IP Limit (default 2): " ip_limit
@@ -102,11 +102,11 @@ while true; do
                     if [ "$days" = "0" ]; then
                         quota_gb=2
                     elif [ "$days" = "3" ]; then
-                        quota_gb=128
+                        quota_gb=64
                     elif [ "$days" = "7" ]; then
-                        quota_gb=256
+                        quota_gb=128
                     elif [ "$days" = "14" ]; then
-                        quota_gb=384
+                        quota_gb=256
                     elif [ "$days" = "30" ]; then
                         quota_gb=512
                     fi
