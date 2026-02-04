@@ -20,6 +20,7 @@ class AccountManager:
             "sni": settings.get("sni") or domain,
             "host": settings.get("host"),
             "port": settings.get("port", 443),
+            "ntls_port": settings.get("ntls_port", 80),
             "tls_insecure": settings.get("tls_insecure", False),
             "vless_path": settings.get("vless_path", "/vortex-vless"),
             "vmess_path": settings.get("vmess_path", "/vortex-vmess"),
@@ -56,17 +57,19 @@ class AccountManager:
         if tls_enabled and settings["tls_insecure"]:
             params.append(("allowInsecure", "1"))
         query = self._build_query(params)
-        return f"vless://{user_dict['uuid']}@{domain}:{settings['port']}?{query}#{user_dict['username']}"
+        port = settings["port"] if tls_enabled else settings["ntls_port"]
+        return f"vless://{user_dict['uuid']}@{domain}:{port}?{query}#{user_dict['username']}"
 
     def _build_vmess_link(self, user_dict: dict, transport: str, tls_enabled: bool) -> str:
         import base64
         settings = self._get_transport_settings()
         domain = settings["address"]
+        port = settings["port"] if tls_enabled else settings["ntls_port"]
         vmess_config = {
             "v": "2",
             "ps": user_dict["username"],
             "add": domain,
-            "port": str(settings["port"]),
+            "port": str(port),
             "id": user_dict["uuid"],
             "aid": "0",
             "scy": "auto",
@@ -129,7 +132,8 @@ class AccountManager:
                 plugin_parts.insert(2, f"host={settings['host']}")
             plugin_opts = ";".join(plugin_parts)
         encoded_opts = urllib.parse.quote(plugin_opts)
-        return f"ss://{auth}@{domain}:{settings['port']}?plugin={encoded_opts}#{user_dict['username']}"
+        port = settings["port"] if tls_mode == "tls" else settings["ntls_port"]
+        return f"ss://{auth}@{domain}:{port}?plugin={encoded_opts}#{user_dict['username']}"
 
     def generate_vless_links(self, user_dict: dict) -> dict:
         return {

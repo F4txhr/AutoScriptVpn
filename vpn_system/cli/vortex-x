@@ -40,6 +40,7 @@ def main():
     add_u.add_argument("--sni", help="Override TLS SNI (server_name)")
     add_u.add_argument("--host", help="Override WS Host header")
     add_u.add_argument("--port", type=int, help="Override port for generated links")
+    add_u.add_argument("--ntls-port", type=int, help="Override port for NTLS links (default 80)")
     add_u.add_argument("--tls-insecure", action="store_true", help="Allow insecure TLS (skip verification)")
     add_u.add_argument("--vless-path", help="Override VLESS WS path")
     add_u.add_argument("--vmess-path", help="Override VMess WS path")
@@ -129,6 +130,7 @@ def main():
                 "sni": args.sni,
                 "host": args.host,
                 "port": args.port,
+                "ntls_port": args.ntls_port,
                 "tls_insecure": args.tls_insecure if args.tls_insecure else None,
                 "vless_path": args.vless_path,
                 "vmess_path": args.vmess_path,
