@@ -136,7 +136,7 @@ class XrayAdapter:
         except:
             pass
 
-    def generate_vless(self, port: int, transport: str = "ws", path: str = "/vortex-vless", service_name: str = "vortex-grpc"):
+    def generate_vless(self, port: int, transport: str = "xhttp", path: str = "/vortex-vless", service_name: str = "vortex-grpc"):
         settings = {"clients": [], "decryption": "none"}
         stream = self._build_stream_settings(transport, path=path, service_name=service_name)
         self.add_inbound("vless", port, f"vless-{transport}-{port}", settings, stream)
@@ -144,7 +144,7 @@ class XrayAdapter:
     def generate_vless_ws(self, port: int, path: str = "/vortex-vless"):
         self.generate_vless(port, transport="ws", path=path)
 
-    def generate_vmess(self, port: int, transport: str = "ws", path: str = "/vortex-vmess"):
+    def generate_vmess(self, port: int, transport: str = "xhttp", path: str = "/vortex-vmess"):
         settings = {"clients": []}
         stream = self._build_stream_settings(transport, path=path)
         self.add_inbound("vmess", port, f"vmess-{transport}-{port}", settings, stream)
@@ -155,7 +155,7 @@ class XrayAdapter:
     def generate_vless_grpc(self, port: int, service_name: str = "vortex-grpc"):
         self.generate_vless(port, transport="grpc", service_name=service_name)
 
-    def generate_trojan(self, port: int, transport: str = "ws", path: str = "/vortex-trojan"):
+    def generate_trojan(self, port: int, transport: str = "xhttp", path: str = "/vortex-trojan"):
         settings = {"clients": []}
         stream = self._build_stream_settings(transport, path=path)
         self.add_inbound("trojan", port, f"trojan-{transport}-{port}", settings, stream)
@@ -163,7 +163,7 @@ class XrayAdapter:
     def generate_trojan_ws(self, port: int, path: str = "/vortex-trojan"):
         self.generate_trojan(port, transport="ws", path=path)
 
-    def generate_ss(self, port: int, transport: str = "ws", path: str = "/vortex-ss"):
+    def generate_ss(self, port: int, transport: str = "xhttp", path: str = "/vortex-ss"):
         settings = {"clients": [], "method": "aes-256-gcm", "network": "tcp,udp"}
         stream = self._build_stream_settings(transport, path=path)
         self.add_inbound("shadowsocks", port, f"ss-{transport}-{port}", settings, stream)

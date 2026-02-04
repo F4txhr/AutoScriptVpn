@@ -79,6 +79,13 @@ def main() -> None:
     vless_grpc_service = settings.get("vless_grpc_service", "vortex-grpc")
     adapter = XrayAdapter(config_path=config_path)
     adapter.config = config
+    existing_inbounds = adapter.config.get("inbounds", [])
+    adapter.config["inbounds"] = [
+        inbound for inbound in existing_inbounds
+        if inbound.get("streamSettings", {}).get("network") not in {"ws", "grpc"}
+    ]
+    if len(adapter.config["inbounds"]) != len(existing_inbounds):
+        changed = True
     inbounds = adapter.config.setdefault("inbounds", [])
     def inbound_matches(protocol: str, port: int, network: str) -> bool:
         for inbound in inbounds:
