@@ -21,7 +21,7 @@ class AccountManager:
             "domain": domain,
             "address": address,
             "sni": settings.get("sni") or domain,
-            "host": settings.get("host"),
+            "host": settings.get("host") or domain,
             "port": settings.get("port", 443),
             "ntls_port": settings.get("ntls_port", 80),
             "tls_insecure": settings.get("tls_insecure", False),

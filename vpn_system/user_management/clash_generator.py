@@ -9,7 +9,7 @@ class ClashGenerator:
         self.domain = settings.get("domain", "YOUR_DOMAIN")
         self.address = settings.get("connect_domain") or self.domain
         self.sni = settings.get("sni") or self.domain
-        self.host = settings.get("host")
+        self.host = settings.get("host") or self.domain
         self.port = settings.get("port", 443)
         self.tls_insecure = settings.get("tls_insecure", False)
         self.vless_path = settings.get("vless_path", "/vortex-vless")
