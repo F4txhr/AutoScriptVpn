@@ -24,6 +24,8 @@ def normalize_shadowsocks_method(method: str) -> str:
 def main() -> None:
     config_path = "/usr/local/etc/xray/config.json"
     if not os.path.exists(config_path):
+        adapter = XrayAdapter(config_path=config_path)
+        adapter.save()
         return
     with open(config_path, "r") as handle:
         raw_config = handle.read()
