@@ -58,26 +58,65 @@ def main() -> None:
     db = VortexDB()
     settings = db.data.get("settings", {})
     default_ss_method = normalize_shadowsocks_method(settings.get("ss_method"))
+
+    # Paths from settings or defaults
     vless_path = settings.get("vless_path", "/vortex-vless")
     vmess_path = settings.get("vmess_path", "/vortex-vmess")
     trojan_path = settings.get("trojan_path", "/vortex-trojan")
     ss_path = settings.get("ss_path", "/vortex-ss")
-    vless_grpc_service = settings.get("vless_grpc_service", "vortex-grpc")
+    upgrade_path = settings.get("upgrade_path")
+    http_path = settings.get("http_path")
+
+    # gRPC services from settings or defaults
+    vless_grpc = settings.get("vless_grpc_service", "vortex-vless-grpc")
+    vmess_grpc = settings.get("vmess_grpc_service", "vortex-vmess-grpc")
+    trojan_grpc = settings.get("trojan_grpc_service", "vortex-trojan-grpc")
+
     adapter = XrayAdapter(config_path=config_path)
     adapter.config = config
     inbounds = adapter.config.setdefault("inbounds", [])
+
+    # VLESS Inbounds
     if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10001 for inbound in inbounds):
         adapter.generate_vless_ws(10001, vless_path)
         changed = True
     if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10003 for inbound in inbounds):
-        adapter.generate_vless_grpc(10003, service_name=vless_grpc_service)
+        adapter.generate_vless_grpc(10003, service_name=vless_grpc)
         changed = True
+    if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10006 for inbound in inbounds):
+        path = upgrade_path or "/vortex-vless-upgrade"
+        adapter.generate_vless_httpupgrade(10006, path=path)
+        changed = True
+    if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10007 for inbound in inbounds):
+        path = http_path or "/vortex-vless-http"
+        adapter.generate_vless_http(10007, path=path)
+        changed = True
+
+    # VMESS Inbounds
     if not any(inbound.get("protocol") == "vmess" and inbound.get("port") == 10002 for inbound in inbounds):
         adapter.generate_vmess_ws(10002, vmess_path)
         changed = True
+    if not any(inbound.get("protocol") == "vmess" and inbound.get("port") == 10008 for inbound in inbounds):
+        adapter.generate_vmess_grpc(10008, service_name=vmess_grpc)
+        changed = True
+    if not any(inbound.get("protocol") == "vmess" and inbound.get("port") == 10009 for inbound in inbounds):
+        path = upgrade_path or "/vortex-vmess-upgrade"
+        adapter.generate_vmess_httpupgrade(10009, path=path)
+        changed = True
+
+    # Trojan Inbounds
     if not any(inbound.get("protocol") == "trojan" and inbound.get("port") == 10004 for inbound in inbounds):
         adapter.generate_trojan_ws(10004, trojan_path)
         changed = True
+    if not any(inbound.get("protocol") == "trojan" and inbound.get("port") == 10010 for inbound in inbounds):
+        adapter.generate_trojan_grpc(10010, service_name=trojan_grpc)
+        changed = True
+    if not any(inbound.get("protocol") == "trojan" and inbound.get("port") == 10011 for inbound in inbounds):
+        path = upgrade_path or "/vortex-trojan-upgrade"
+        adapter.generate_trojan_httpupgrade(10011, path=path)
+        changed = True
+
+    # SS Inbound
     if not any(inbound.get("protocol") == "shadowsocks" and inbound.get("port") == 10005 for inbound in inbounds):
         adapter.generate_ss_ws(10005, ss_path)
         changed = True
@@ -89,12 +128,12 @@ def main() -> None:
     for inbound in adapter.config.get("inbounds", []):
         if inbound.get("protocol") != "shadowsocks":
             continue
-        settings = inbound.setdefault("settings", {})
-        normalized_method = normalize_shadowsocks_method(settings.get("method"))
-        if settings.get("method") != normalized_method:
-            settings["method"] = normalized_method
+        settings_obj = inbound.setdefault("settings", {})
+        normalized_method = normalize_shadowsocks_method(settings_obj.get("method"))
+        if settings_obj.get("method") != normalized_method:
+            settings_obj["method"] = normalized_method
             changed = True
-        for client in settings.get("clients", []):
+        for client in settings_obj.get("clients", []):
             normalized_client_method = normalize_shadowsocks_method(client.get("method"))
             if client.get("method") != normalized_client_method:
                 client["method"] = normalized_client_method
