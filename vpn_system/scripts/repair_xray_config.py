@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import re
 import sys
 
 LIB_PATH = "/usr/local/lib/vortex-x"
@@ -24,10 +25,21 @@ def main() -> None:
     config_path = "/usr/local/etc/xray/config.json"
     if not os.path.exists(config_path):
         return
+    with open(config_path, "r") as handle:
+        raw_config = handle.read()
+
     try:
-        with open(config_path, "r") as handle:
-            config = json.load(handle)
+        config = json.loads(raw_config)
     except json.JSONDecodeError:
+        normalized = re.sub(
+            r'("method"\s*:\s*)""',
+            r'\1"aes-256-gcm"',
+            raw_config,
+            flags=re.IGNORECASE,
+        )
+        if normalized != raw_config:
+            with open(config_path, "w") as handle:
+                handle.write(normalized)
         return
 
     changed = False
