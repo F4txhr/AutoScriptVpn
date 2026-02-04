@@ -59,6 +59,8 @@ server {{
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{vless_port};
         proxy_http_version 1.1;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
@@ -69,6 +71,8 @@ server {{
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{vmess_port};
         proxy_http_version 1.1;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
@@ -79,6 +83,8 @@ server {{
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{trojan_port};
         proxy_http_version 1.1;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
@@ -106,6 +112,8 @@ server {{
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{vless_port};
         proxy_http_version 1.1;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
@@ -117,6 +125,8 @@ server {{
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{vmess_port};
         proxy_http_version 1.1;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
@@ -128,6 +138,8 @@ server {{
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{trojan_port};
         proxy_http_version 1.1;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
