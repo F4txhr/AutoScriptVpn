@@ -167,3 +167,51 @@ class XrayAdapter:
             "quicSettings": {"security": security, "key": key, "header": {"type": header_type}}
         }
         self.add_inbound("vless", port, f"vless-quic-{port}", settings, stream)
+
+    def generate_vless_httpupgrade(self, port: int, path: str = "/vortex-upgrade"):
+        settings = {"clients": [], "decryption": "none"}
+        stream = {
+            "network": "httpupgrade",
+            "httpupgradeSettings": {"path": path}
+        }
+        self.add_inbound("vless", port, f"vless-httpupgrade-{port}", settings, stream)
+
+    def generate_vmess_httpupgrade(self, port: int, path: str = "/vortex-upgrade"):
+        settings = {"clients": []}
+        stream = {
+            "network": "httpupgrade",
+            "httpupgradeSettings": {"path": path}
+        }
+        self.add_inbound("vmess", port, f"vmess-httpupgrade-{port}", settings, stream)
+
+    def generate_trojan_httpupgrade(self, port: int, path: str = "/vortex-upgrade"):
+        settings = {"clients": []}
+        stream = {
+            "network": "httpupgrade",
+            "httpupgradeSettings": {"path": path}
+        }
+        self.add_inbound("trojan", port, f"trojan-httpupgrade-{port}", settings, stream)
+
+    def generate_vless_http(self, port: int, path: str = "/vortex-http"):
+        settings = {"clients": [], "decryption": "none"}
+        stream = {
+            "network": "http",
+            "httpSettings": {"path": path}
+        }
+        self.add_inbound("vless", port, f"vless-http-{port}", settings, stream)
+
+    def generate_vmess_grpc(self, port: int, service_name: str = "vortex-vmess-grpc"):
+        settings = {"clients": []}
+        stream = {
+            "network": "grpc",
+            "grpcSettings": {"serviceName": service_name}
+        }
+        self.add_inbound("vmess", port, f"vmess-grpc-{port}", settings, stream)
+
+    def generate_trojan_grpc(self, port: int, service_name: str = "vortex-trojan-grpc"):
+        settings = {"clients": []}
+        stream = {
+            "network": "grpc",
+            "grpcSettings": {"serviceName": service_name}
+        }
+        self.add_inbound("trojan", port, f"trojan-grpc-{port}", settings, stream)

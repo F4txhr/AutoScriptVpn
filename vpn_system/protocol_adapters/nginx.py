@@ -33,7 +33,7 @@ class NginxAdapter:
     def generate_vhost(self, domain: str, vless_port: int, vmess_port: int, trojan_port: int, ss_port: int = 0):
         self.cleanup_conflicts(domain)
         
-        # Location for Shadowsocks if port provided
+        # Shadowsocks location
         ss_location = ""
         if ss_port > 0:
             ss_location = f"""
@@ -53,43 +53,75 @@ server {{
     listen [::]:80 default_server;
     server_name {domain} _;
 
-    # NTLS WebSocket (no TLS termination)
+    # --- NTLS WebSocket ---
     location /vortex-vless {{
         if ($http_upgrade != "websocket") {{ return 404; }}
-        proxy_redirect off;
         proxy_pass http://127.0.0.1:{vless_port};
         proxy_http_version 1.1;
-        proxy_read_timeout 1h;
-        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
     }}
-
     location /vortex-vmess {{
         if ($http_upgrade != "websocket") {{ return 404; }}
-        proxy_redirect off;
         proxy_pass http://127.0.0.1:{vmess_port};
         proxy_http_version 1.1;
-        proxy_read_timeout 1h;
-        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
     }}
-
     location /vortex-trojan {{
         if ($http_upgrade != "websocket") {{ return 404; }}
-        proxy_redirect off;
         proxy_pass http://127.0.0.1:{trojan_port};
         proxy_http_version 1.1;
-        proxy_read_timeout 1h;
-        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
     }}
     {ss_location}
+
+    # --- NTLS gRPC ---
+    location /vortex-vless-grpc {{
+        if ($request_method != "POST") {{ return 404; }}
+        grpc_pass grpc://127.0.0.1:10003;
+        grpc_set_header Host $host;
+    }}
+    location /vortex-vmess-grpc {{
+        if ($request_method != "POST") {{ return 404; }}
+        grpc_pass grpc://127.0.0.1:10008;
+        grpc_set_header Host $host;
+    }}
+    location /vortex-trojan-grpc {{
+        if ($request_method != "POST") {{ return 404; }}
+        grpc_pass grpc://127.0.0.1:10010;
+        grpc_set_header Host $host;
+    }}
+
+    # --- NTLS HTTPUpgrade (httpx) ---
+    location /vortex-vless-upgrade {{
+        if ($http_upgrade = "") {{ return 404; }}
+        proxy_pass http://127.0.0.1:10006;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }}
+    location /vortex-vmess-upgrade {{
+        if ($http_upgrade = "") {{ return 404; }}
+        proxy_pass http://127.0.0.1:10009;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }}
+    location /vortex-trojan-upgrade {{
+        if ($http_upgrade = "") {{ return 404; }}
+        proxy_pass http://127.0.0.1:10011;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }}
 
     location / {{
         return 301 https://$host$request_uri;
@@ -106,57 +138,82 @@ server {{
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
 
-    # VLESS WebSocket
+    # --- TLS WebSocket ---
     location /vortex-vless {{
         if ($http_upgrade != "websocket") {{ return 404; }}
-        proxy_redirect off;
         proxy_pass http://127.0.0.1:{vless_port};
         proxy_http_version 1.1;
-        proxy_read_timeout 1h;
-        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
     }}
-
-    # VMESS WebSocket
     location /vortex-vmess {{
         if ($http_upgrade != "websocket") {{ return 404; }}
-        proxy_redirect off;
         proxy_pass http://127.0.0.1:{vmess_port};
         proxy_http_version 1.1;
-        proxy_read_timeout 1h;
-        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
     }}
-
-    # Trojan WebSocket
     location /vortex-trojan {{
         if ($http_upgrade != "websocket") {{ return 404; }}
-        proxy_redirect off;
         proxy_pass http://127.0.0.1:{trojan_port};
         proxy_http_version 1.1;
-        proxy_read_timeout 1h;
-        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
     }}
     {ss_location}
 
-    # VLESS gRPC (Advanced Transport)
-    location /vortex-grpc {{
+    # --- TLS gRPC ---
+    location /vortex-vless-grpc {{
         if ($request_method != "POST") {{ return 404; }}
-        client_max_body_size 0;
-        grpc_read_timeout 1h;
-        grpc_send_timeout 1h;
-        grpc_set_header Host $host;
         grpc_pass grpc://127.0.0.1:10003;
+        grpc_set_header Host $host;
+    }}
+    location /vortex-vmess-grpc {{
+        if ($request_method != "POST") {{ return 404; }}
+        grpc_pass grpc://127.0.0.1:10008;
+        grpc_set_header Host $host;
+    }}
+    location /vortex-trojan-grpc {{
+        if ($request_method != "POST") {{ return 404; }}
+        grpc_pass grpc://127.0.0.1:10010;
+        grpc_set_header Host $host;
     }}
 
-    # Fallback / Fake Website
+    # --- TLS HTTPUpgrade (httpx) ---
+    location /vortex-vless-upgrade {{
+        if ($http_upgrade = "") {{ return 404; }}
+        proxy_pass http://127.0.0.1:10006;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }}
+    location /vortex-vmess-upgrade {{
+        if ($http_upgrade = "") {{ return 404; }}
+        proxy_pass http://127.0.0.1:10009;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }}
+    location /vortex-trojan-upgrade {{
+        if ($http_upgrade = "") {{ return 404; }}
+        proxy_pass http://127.0.0.1:10011;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }}
+
+    # --- TLS H2 (HTTP/2 Transport) ---
+    location /vortex-vless-http {{
+        grpc_pass grpc://127.0.0.1:10007;
+        grpc_set_header Host $host;
+    }}
+
     location / {{
         root /var/www/html;
         index index.html;

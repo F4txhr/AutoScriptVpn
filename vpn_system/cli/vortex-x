@@ -36,6 +36,7 @@ def main():
     add_u = user_sub.add_parser("add", help="Add new user")
     add_u.add_argument("-u", "--username", required=True)
     add_u.add_argument("-p", "--protocol", choices=["vless", "vmess", "trojan", "shadowsocks", "wireguard", "openvpn"], required=True)
+    add_u.add_argument("-t", "--transport", choices=["ws", "grpc", "httpupgrade", "http"], default="ws", help="Transport protocol (for xray protocols)")
     add_u.add_argument("--connect-domain", help="Override connect domain/IP for generated links")
     add_u.add_argument("--sni", help="Override TLS SNI (server_name)")
     add_u.add_argument("--host", help="Override WS Host header")
@@ -140,6 +141,7 @@ def main():
                 "vmess_path": args.vmess_path,
                 "trojan_path": args.trojan_path,
                 "ss_path": args.ss_path,
+                "transport": args.transport,
                 "vless_grpc_service": args.vless_grpc_service,
                 "ss_method": args.ss_method,
                 "ss_plugin_opts": args.ss_plugin_opts
@@ -160,6 +162,8 @@ def main():
                 )
                 print(f"\n[SUCCESS] User {args.username} created!")
                 print(f"Protocol : {args.protocol}")
+                if args.protocol in ["vless", "vmess", "trojan", "shadowsocks"]:
+                    print(f"Transport: {args.transport}")
                 print(f"UUID     : {user['uuid']}")
                 print(f"Expires  : {time.ctime(user['expires_at'])}")
                 
