@@ -33,6 +33,131 @@ class AccountManager:
     def _build_query(self, params: list) -> str:
         return urlencode(params, safe="%")
 
+    def _build_vless_link(self, user_dict: dict, transport: str, tls_enabled: bool) -> str:
+        settings = self._get_transport_settings()
+        domain = settings["address"]
+        params = [
+            ("encryption", "none"),
+            ("security", "tls" if tls_enabled else "none")
+        ]
+        if transport == "ws":
+            params.append(("type", "ws"))
+            params.append(("path", quote(settings["vless_path"], safe="")))
+        elif transport == "grpc":
+            params.append(("mode", "grpc"))
+            params.append(("serviceName", settings["vless_grpc_service"]))
+        if settings["host"]:
+            if transport == "grpc":
+                params.append(("authority", settings["host"]))
+            else:
+                params.append(("host", settings["host"]))
+        if tls_enabled and settings["sni"]:
+            params.append(("sni", settings["sni"]))
+        if tls_enabled and settings["tls_insecure"]:
+            params.append(("allowInsecure", "1"))
+        query = self._build_query(params)
+        return f"vless://{user_dict['uuid']}@{domain}:{settings['port']}?{query}#{user_dict['username']}"
+
+    def _build_vmess_link(self, user_dict: dict, transport: str, tls_enabled: bool) -> str:
+        import base64
+        settings = self._get_transport_settings()
+        domain = settings["address"]
+        vmess_config = {
+            "v": "2",
+            "ps": user_dict["username"],
+            "add": domain,
+            "port": str(settings["port"]),
+            "id": user_dict["uuid"],
+            "aid": "0",
+            "scy": "auto",
+            "net": transport,
+            "type": "none"
+        }
+        if transport == "ws":
+            vmess_config["path"] = settings["vmess_path"]
+        elif transport == "grpc":
+            vmess_config["path"] = settings["vless_grpc_service"]
+        if settings["host"]:
+            vmess_config["host"] = settings["host"]
+        if tls_enabled:
+            vmess_config["tls"] = "tls"
+            if settings["sni"]:
+                vmess_config["sni"] = settings["sni"]
+            if settings["tls_insecure"]:
+                vmess_config["allowInsecure"] = 1
+        encoded = base64.b64encode(json.dumps(vmess_config).encode()).decode()
+        return f"vmess://{encoded}"
+
+    def _build_trojan_link(self, user_dict: dict, transport: str) -> str:
+        settings = self._get_transport_settings()
+        domain = settings["address"]
+        params = [("security", "tls")]
+        if transport == "ws":
+            params.extend([
+                ("type", "ws"),
+                ("path", quote(settings["trojan_path"], safe=""))
+            ])
+        elif transport == "grpc":
+            params.extend([
+                ("type", "grpc"),
+                ("serviceName", settings["vless_grpc_service"])
+            ])
+        if settings["host"]:
+            params.append(("host", settings["host"]))
+        if settings["sni"]:
+            params.append(("sni", settings["sni"]))
+        if settings["tls_insecure"]:
+            params.append(("allowInsecure", "1"))
+        query = self._build_query(params)
+        return f"trojan://{user_dict['uuid']}@{domain}:{settings['port']}?{query}#{user_dict['username']}"
+
+    def _build_ss_link(self, user_dict: dict, tls_mode: str) -> str:
+        import base64
+        import urllib.parse
+        settings = self._get_transport_settings()
+        domain = settings["address"]
+        auth = base64.b64encode(f"{settings['ss_method']}:{user_dict['uuid']}".encode()).decode()
+        if settings["ss_plugin_opts"]:
+            plugin_opts = settings["ss_plugin_opts"]
+        else:
+            plugin_parts = ["v2ray-plugin", f"path={settings['ss_path']}"]
+            if tls_mode == "tls":
+                plugin_parts.append("tls")
+            elif tls_mode == "ntls":
+                plugin_parts.append("ntls")
+            if settings["host"]:
+                plugin_parts.insert(2, f"host={settings['host']}")
+            plugin_opts = ";".join(plugin_parts)
+        encoded_opts = urllib.parse.quote(plugin_opts)
+        return f"ss://{auth}@{domain}:{settings['port']}?plugin={encoded_opts}#{user_dict['username']}"
+
+    def generate_vless_links(self, user_dict: dict) -> dict:
+        return {
+            "WS TLS": self._build_vless_link(user_dict, "ws", True),
+            "WS NTLS": self._build_vless_link(user_dict, "ws", False),
+            "gRPC TLS": self._build_vless_link(user_dict, "grpc", True),
+            "gRPC NTLS": self._build_vless_link(user_dict, "grpc", False)
+        }
+
+    def generate_vmess_links(self, user_dict: dict) -> dict:
+        return {
+            "WS TLS": self._build_vmess_link(user_dict, "ws", True),
+            "WS NTLS": self._build_vmess_link(user_dict, "ws", False),
+            "gRPC TLS": self._build_vmess_link(user_dict, "grpc", True)
+        }
+
+    def generate_trojan_links(self, user_dict: dict) -> dict:
+        return {
+            "WS TLS": self._build_trojan_link(user_dict, "ws"),
+            "gRPC TLS": self._build_trojan_link(user_dict, "grpc")
+        }
+
+    def generate_ss_links(self, user_dict: dict) -> dict:
+        return {
+            "WS TLS": self._build_ss_link(user_dict, "tls"),
+            "WS NTLS": self._build_ss_link(user_dict, "ntls")
+        }
+
     def create_user(self, username: str, protocol: str, days: int = 30) -> dict:
         # 1. Check if user already exists
         if self.db.get_user(username):
@@ -157,88 +282,16 @@ PersistentKeepalive = 25
         return found_inbound
 
     def generate_vless_link(self, user_dict: dict) -> str:
-        settings = self._get_transport_settings()
-        domain = settings["address"]
-        params = [
-            ("type", "ws"),
-            ("encryption", "none"),
-            ("security", "tls"),
-            ("path", quote(settings["vless_path"], safe=""))
-        ]
-        if settings["host"]:
-            params.append(("host", settings["host"]))
-        if settings["sni"]:
-            params.append(("sni", settings["sni"]))
-        if settings["tls_insecure"]:
-            params.append(("allowInsecure", "1"))
-        query = self._build_query(params)
-        return f"vless://{user_dict['uuid']}@{domain}:{settings['port']}?{query}#{user_dict['username']}"
+        return self._build_vless_link(user_dict, "ws", True)
 
     def generate_vless_grpc_link(self, user_dict: dict) -> str:
-        settings = self._get_transport_settings()
-        domain = settings["address"]
-        params = [
-            ("mode", "grpc"),
-            ("security", "tls"),
-            ("encryption", "none"),
-            ("serviceName", settings["vless_grpc_service"])
-        ]
-        if settings["host"]:
-            params.append(("authority", settings["host"]))
-        if settings["sni"]:
-            params.append(("sni", settings["sni"]))
-        if settings["tls_insecure"]:
-            params.append(("allowInsecure", "1"))
-        query = self._build_query(params)
-        return f"vless://{user_dict['uuid']}@{domain}:{settings['port']}?{query}#{user_dict['username']}"
+        return self._build_vless_link(user_dict, "grpc", True)
 
     def generate_vmess_link(self, user_dict: dict) -> str:
-        import base64
-        settings = self._get_transport_settings()
-        domain = settings["address"]
-        vmess_config = {
-            "v": "2", "ps": user_dict["username"], "add": domain, "port": str(settings["port"]), "id": user_dict["uuid"],
-            "aid": "0", "scy": "auto", "net": "ws", "type": "none", "path": settings["vmess_path"],
-            "tls": "tls"
-        }
-        if settings["host"]:
-            vmess_config["host"] = settings["host"]
-        if settings["sni"]:
-            vmess_config["sni"] = settings["sni"]
-        if settings["tls_insecure"]:
-            vmess_config["allowInsecure"] = 1
-        encoded = base64.b64encode(json.dumps(vmess_config).encode()).decode()
-        return f"vmess://{encoded}"
+        return self._build_vmess_link(user_dict, "ws", True)
 
     def generate_trojan_link(self, user_dict: dict) -> str:
-        settings = self._get_transport_settings()
-        domain = settings["address"]
-        params = [
-            ("security", "tls"),
-            ("type", "ws"),
-            ("path", quote(settings["trojan_path"], safe=""))
-        ]
-        if settings["host"]:
-            params.append(("host", settings["host"]))
-        if settings["sni"]:
-            params.append(("sni", settings["sni"]))
-        if settings["tls_insecure"]:
-            params.append(("allowInsecure", "1"))
-        query = self._build_query(params)
-        return f"trojan://{user_dict['uuid']}@{domain}:{settings['port']}?{query}#{user_dict['username']}"
+        return self._build_trojan_link(user_dict, "ws")
 
     def generate_ss_link(self, user_dict: dict) -> str:
-        import base64
-        import urllib.parse
-        settings = self._get_transport_settings()
-        domain = settings["address"]
-        auth = base64.b64encode(f"{settings['ss_method']}:{user_dict['uuid']}".encode()).decode()
-        if settings["ss_plugin_opts"]:
-            plugin_opts = settings["ss_plugin_opts"]
-        else:
-            plugin_parts = ["v2ray-plugin", f"path={settings['ss_path']}", "tls"]
-            if settings["host"]:
-                plugin_parts.insert(2, f"host={settings['host']}")
-            plugin_opts = ";".join(plugin_parts)
-        encoded_opts = urllib.parse.quote(plugin_opts)
-        return f"ss://{auth}@{domain}:{settings['port']}?plugin={encoded_opts}#{user_dict['username']}"
+        return self._build_ss_link(user_dict, "tls")

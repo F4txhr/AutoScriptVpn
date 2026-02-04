@@ -152,14 +152,17 @@ def main():
                 
                 print("\n--- CONNECTION LINK ---")
                 if args.protocol == "vless":
-                    print(f"WS TLS   : {manager.generate_vless_link(user)}")
-                    print(f"gRPC TLS : {manager.generate_vless_grpc_link(user)}")
+                    for label, link in manager.generate_vless_links(user).items():
+                        print(f"{label:<8}: {link}")
                 elif args.protocol == "vmess":
-                    print(f"WS TLS   : {manager.generate_vmess_link(user)}")
+                    for label, link in manager.generate_vmess_links(user).items():
+                        print(f"{label:<8}: {link}")
                 elif args.protocol == "trojan":
-                    print(f"WS TLS   : {manager.generate_trojan_link(user)}")
+                    for label, link in manager.generate_trojan_links(user).items():
+                        print(f"{label:<8}: {link}")
                 elif args.protocol == "shadowsocks":
-                    print(f"SS + WS  : {manager.generate_ss_link(user)}")
+                    for label, link in manager.generate_ss_links(user).items():
+                        print(f"{label:<8}: {link}")
                 elif args.protocol == "wireguard":
                     print(manager.generate_wg_config(user))
                 print("-----------------------\n")
