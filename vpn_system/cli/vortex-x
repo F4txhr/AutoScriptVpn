@@ -49,6 +49,10 @@ def main():
     add_u.add_argument("--vless-grpc-service", help="Override VLESS gRPC service name")
     add_u.add_argument("--ss-method", help="Override Shadowsocks method (default aes-256-gcm)")
     add_u.add_argument("--ss-plugin-opts", help="Override Shadowsocks plugin opts string")
+    add_u.add_argument("--days", type=int, default=30, help="Account validity in days")
+    add_u.add_argument("--ip-limit", type=int, default=2, help="Max concurrent IPs")
+    add_u.add_argument("--quota-gb", type=int, default=0, help="Bandwidth quota in GB (0 = unlimited)")
+    add_u.add_argument("--trial-hours", type=int, default=0, help="Trial duration in hours (overrides days)")
     
     clash_p = user_sub.add_parser("clash", help="Export Clash Meta config")
     clash_p.add_argument("-u", "--username", required=True)
@@ -146,7 +150,14 @@ def main():
                         db.data["settings"][key] = value
                 db.save()
             try:
-                user = manager.create_user(args.username, args.protocol)
+                user = manager.create_user(
+                    args.username,
+                    args.protocol,
+                    days=args.days,
+                    ip_limit=args.ip_limit,
+                    quota_gb=args.quota_gb,
+                    trial_hours=args.trial_hours
+                )
                 print(f"\n[SUCCESS] User {args.username} created!")
                 print(f"Protocol : {args.protocol}")
                 print(f"UUID     : {user['uuid']}")

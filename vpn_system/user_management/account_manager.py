@@ -162,13 +162,24 @@ class AccountManager:
             "WS NTLS": self._build_ss_link(user_dict, "ntls")
         }
 
-    def create_user(self, username: str, protocol: str, days: int = 30) -> dict:
+    def create_user(
+        self,
+        username: str,
+        protocol: str,
+        days: int = 30,
+        ip_limit: int = 2,
+        quota_gb: int = 0,
+        trial_hours: int = 0
+    ) -> dict:
         # 1. Check if user already exists
         if self.db.get_user(username):
             raise ValueError(f"User '{username}' already exists.")
 
         # 2. Calculate expiry
-        expires_at = int(time.time()) + (days * 86400)
+        if trial_hours > 0:
+            expires_at = int(time.time()) + (trial_hours * 3600)
+        else:
+            expires_at = int(time.time()) + (days * 86400)
         
         credentials = {}
         
@@ -199,7 +210,9 @@ class AccountManager:
             username=username,
             protocol=protocol,
             expires_at=expires_at,
-            password=credentials.get("password", "")
+            password=credentials.get("password", ""),
+            ip_limit=ip_limit,
+            quota_gb=quota_gb
         )
         new_user.credentials = credentials 
 

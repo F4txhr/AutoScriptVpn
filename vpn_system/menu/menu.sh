@@ -78,6 +78,22 @@ while true; do
             if [ "$u_opt" == "1" ]; then
                 read -p "Username: " uname
                 read -p "Protocol (vless/vmess/trojan/shadowsocks/wireguard/openvpn): " proto
+                echo -e "\n${YELLOW}Bandwidth suggestion (GB):${NC}"
+                echo "  3 days  : 10 GB"
+                echo "  7 days  : 25 GB"
+                echo "  14 days : 50 GB"
+                echo "  30 days : 100 GB"
+                echo "  Trial   : 1 GB (1 hour)"
+                read -p "Days (default 30, use 0 for trial): " days
+                read -p "Trial hours (default 1 for trial): " trial_hours
+                read -p "IP Limit (default 2): " ip_limit
+                read -p "Bandwidth Quota GB (0 = unlimited): " quota_gb
+                if [ -z "$days" ]; then
+                    days=30
+                fi
+                if [ "$days" = "0" ] && [ -z "$trial_hours" ]; then
+                    trial_hours=1
+                fi
                 host=$(python3 - <<'PY'
 import os
 import sys
@@ -95,6 +111,18 @@ PY
                 extra_args=(--ntls-port 80)
                 if [ -n "$host" ]; then
                     extra_args+=(--host "$host")
+                fi
+                if [ -n "$days" ]; then
+                    extra_args+=(--days "$days")
+                fi
+                if [ -n "$trial_hours" ]; then
+                    extra_args+=(--trial-hours "$trial_hours")
+                fi
+                if [ -n "$ip_limit" ]; then
+                    extra_args+=(--ip-limit "$ip_limit")
+                fi
+                if [ -n "$quota_gb" ]; then
+                    extra_args+=(--quota-gb "$quota_gb")
                 fi
                 python3 "$LIB_PATH/cli/vortex-x" user add -u "$uname" -p "$proto" "${extra_args[@]}"
             elif [ "$u_opt" == "3" ]; then
