@@ -10,6 +10,7 @@ if not os.path.exists(LIB_PATH):
 sys.path.append(LIB_PATH)
 
 from protocol_adapters.xray import XrayAdapter
+from core.models import VortexDB
 
 
 def normalize_shadowsocks_method(method: str) -> str:
@@ -54,7 +55,38 @@ def main() -> None:
         return
 
     changed = False
-    for inbound in config.get("inbounds", []):
+    db = VortexDB()
+    settings = db.data.get("settings", {})
+    default_ss_method = normalize_shadowsocks_method(settings.get("ss_method"))
+    vless_path = settings.get("vless_path", "/vortex-vless")
+    vmess_path = settings.get("vmess_path", "/vortex-vmess")
+    trojan_path = settings.get("trojan_path", "/vortex-trojan")
+    ss_path = settings.get("ss_path", "/vortex-ss")
+    vless_grpc_service = settings.get("vless_grpc_service", "vortex-grpc")
+    adapter = XrayAdapter(config_path=config_path)
+    adapter.config = config
+    inbounds = adapter.config.setdefault("inbounds", [])
+    if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10001 for inbound in inbounds):
+        adapter.generate_vless_ws(10001, vless_path)
+        changed = True
+    if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10003 for inbound in inbounds):
+        adapter.generate_vless_grpc(10003, service_name=vless_grpc_service)
+        changed = True
+    if not any(inbound.get("protocol") == "vmess" and inbound.get("port") == 10002 for inbound in inbounds):
+        adapter.generate_vmess_ws(10002, vmess_path)
+        changed = True
+    if not any(inbound.get("protocol") == "trojan" and inbound.get("port") == 10004 for inbound in inbounds):
+        adapter.generate_trojan_ws(10004, trojan_path)
+        changed = True
+    if not any(inbound.get("protocol") == "shadowsocks" and inbound.get("port") == 10005 for inbound in inbounds):
+        adapter.generate_ss_ws(10005, ss_path)
+        changed = True
+
+    for inbound in adapter.config.get("inbounds", []):
+        if "settings" in inbound and "clients" in inbound["settings"]:
+            inbound["settings"]["clients"] = []
+
+    for inbound in adapter.config.get("inbounds", []):
         if inbound.get("protocol") != "shadowsocks":
             continue
         settings = inbound.setdefault("settings", {})
@@ -68,9 +100,32 @@ def main() -> None:
                 client["method"] = normalized_client_method
                 changed = True
 
+    for user in db.data.get("users", []):
+        protocol = user.get("protocol")
+        if protocol not in {"vless", "vmess", "trojan", "shadowsocks"}:
+            continue
+        for inbound in adapter.config.get("inbounds", []):
+            if inbound.get("protocol") != protocol:
+                continue
+            inbound_settings = inbound.setdefault("settings", {})
+            clients = inbound_settings.setdefault("clients", [])
+            if protocol in {"vless", "vmess"}:
+                client = {"id": user.get("uuid"), "email": user.get("username"), "level": 0}
+            elif protocol == "trojan":
+                client = {"password": user.get("uuid"), "email": user.get("username"), "level": 0}
+            else:
+                client = {
+                    "password": user.get("uuid"),
+                    "email": user.get("username"),
+                    "method": default_ss_method,
+                }
+                inbound_settings["method"] = default_ss_method
+            clients.append(client)
+            changed = True
+
     if changed:
         with open(config_path, "w") as handle:
-            json.dump(config, handle, indent=4)
+            json.dump(adapter.config, handle, indent=4)
 
 
 if __name__ == "__main__":
