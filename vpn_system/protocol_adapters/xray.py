@@ -102,6 +102,8 @@ class XrayAdapter:
             if inbound.get("protocol") == "shadowsocks":
                 settings = inbound.setdefault("settings", {})
                 settings["method"] = self._normalize_shadowsocks_method(settings.get("method"))
+                for client in settings.get("clients", []):
+                    client["method"] = self._normalize_shadowsocks_method(client.get("method"))
         os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
         with open(self.config_path, 'w') as f:
             json.dump(self.config, f, indent=4)

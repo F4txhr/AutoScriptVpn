@@ -62,6 +62,11 @@ def main() -> None:
         if settings.get("method") != normalized_method:
             settings["method"] = normalized_method
             changed = True
+        for client in settings.get("clients", []):
+            normalized_client_method = normalize_shadowsocks_method(client.get("method"))
+            if client.get("method") != normalized_client_method:
+                client["method"] = normalized_client_method
+                changed = True
 
     if changed:
         with open(config_path, "w") as handle:
