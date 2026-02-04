@@ -49,9 +49,9 @@ class NginxAdapter:
 
         vhost_content = f"""
 server {{
-    listen 80;
-    listen [::]:80;
-    server_name {domain};
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name {domain} _;
 
     # NTLS WebSocket (no TLS termination)
     location /vortex-vless {{
@@ -140,6 +140,7 @@ server {{
         client_max_body_size 0;
         grpc_read_timeout 1h;
         grpc_send_timeout 1h;
+        grpc_set_header Host $host;
         grpc_pass grpc://127.0.0.1:10003;
     }}
 
