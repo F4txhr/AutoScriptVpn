@@ -12,6 +12,7 @@ class ClashGenerator:
         self.host = settings.get("host") or self.domain
         self.port = settings.get("port", 443)
         self.tls_insecure = settings.get("tls_insecure", False)
+        self.transport = settings.get("transport", "xhttp")
         self.vless_path = settings.get("vless_path", "/vortex-vless")
         self.vmess_path = settings.get("vmess_path", "/vortex-vmess")
         self.trojan_path = settings.get("trojan_path", "/vortex-trojan")
@@ -53,8 +54,8 @@ class ClashGenerator:
             proxy.update({
                 "type": "vless",
                 "uuid": user["uuid"],
-                "network": "ws",
-                "ws-opts": {"path": self.vless_path}
+                "network": self.transport,
+                "ws-opts": {"path": self.vless_path} if self.transport == "ws" else {"path": self.vless_path}
             })
         elif user["protocol"] == "vmess":
             proxy.update({
@@ -62,18 +63,18 @@ class ClashGenerator:
                 "uuid": user["uuid"],
                 "alterId": 0,
                 "cipher": "auto",
-                "network": "ws",
-                "ws-opts": {"path": self.vmess_path}
+                "network": self.transport,
+                "ws-opts": {"path": self.vmess_path} if self.transport == "ws" else {"path": self.vmess_path}
             })
         elif user["protocol"] == "trojan":
             proxy.update({
                 "type": "trojan",
                 "password": user["uuid"],
-                "network": "ws",
-                "ws-opts": {"path": self.trojan_path}
+                "network": self.transport,
+                "ws-opts": {"path": self.trojan_path} if self.transport == "ws" else {"path": self.trojan_path}
             })
 
-        if self.host and proxy.get("network") == "ws":
+        if self.host and proxy.get("network") in {"ws", "xhttp"}:
             proxy["ws-opts"].setdefault("headers", {})["Host"] = self.host
 
         config["proxies"].append(proxy)

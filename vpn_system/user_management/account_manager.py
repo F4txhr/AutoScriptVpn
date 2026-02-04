@@ -25,6 +25,8 @@ class AccountManager:
             "port": settings.get("port", 443),
             "ntls_port": settings.get("ntls_port", 80),
             "tls_insecure": settings.get("tls_insecure", False),
+            "transport": settings.get("transport", "xhttp"),
+            "enable_grpc": settings.get("enable_grpc", False),
             "vless_path": settings.get("vless_path", "/vortex-vless"),
             "vmess_path": settings.get("vmess_path", "/vortex-vmess"),
             "trojan_path": settings.get("trojan_path", "/vortex-trojan"),
@@ -46,6 +48,9 @@ class AccountManager:
         ]
         if transport == "ws":
             params.append(("type", "ws"))
+            params.append(("path", quote(settings["vless_path"], safe="")))
+        elif transport == "xhttp":
+            params.append(("type", "xhttp"))
             params.append(("path", quote(settings["vless_path"], safe="")))
         elif transport == "grpc":
             params.append(("type", "grpc"))
@@ -81,6 +86,8 @@ class AccountManager:
         }
         if transport == "ws":
             vmess_config["path"] = settings["vmess_path"]
+        elif transport == "xhttp":
+            vmess_config["path"] = settings["vmess_path"]
         elif transport == "grpc":
             vmess_config["path"] = settings["vless_grpc_service"]
         if settings["host"]:
@@ -101,6 +108,11 @@ class AccountManager:
         if transport == "ws":
             params.extend([
                 ("type", "ws"),
+                ("path", quote(settings["trojan_path"], safe=""))
+            ])
+        elif transport == "xhttp":
+            params.extend([
+                ("type", "xhttp"),
                 ("path", quote(settings["trojan_path"], safe=""))
             ])
         elif transport == "grpc":
@@ -139,29 +151,40 @@ class AccountManager:
         return f"ss://{auth}@{domain}:{port}?plugin={encoded_opts}#{user_dict['username']}"
 
     def generate_vless_links(self, user_dict: dict) -> dict:
-        return {
-            "WS TLS": self._build_vless_link(user_dict, "ws", True),
-            "WS NTLS": self._build_vless_link(user_dict, "ws", False),
-            "gRPC TLS": self._build_vless_link(user_dict, "grpc", True),
-            "gRPC NTLS": self._build_vless_link(user_dict, "grpc", False)
+        settings = self._get_transport_settings()
+        transport = settings["transport"]
+        links = {
+            f"{transport.upper()} TLS": self._build_vless_link(user_dict, transport, True),
+            f"{transport.upper()} NTLS": self._build_vless_link(user_dict, transport, False)
         }
+        if settings["enable_grpc"]:
+            links["gRPC TLS"] = self._build_vless_link(user_dict, "grpc", True)
+            links["gRPC NTLS"] = self._build_vless_link(user_dict, "grpc", False)
+        return links
 
     def generate_vmess_links(self, user_dict: dict) -> dict:
+        settings = self._get_transport_settings()
+        transport = settings["transport"]
         return {
-            "WS TLS": self._build_vmess_link(user_dict, "ws", True),
-            "WS NTLS": self._build_vmess_link(user_dict, "ws", False)
+            f"{transport.upper()} TLS": self._build_vmess_link(user_dict, transport, True),
+            f"{transport.upper()} NTLS": self._build_vmess_link(user_dict, transport, False)
         }
 
     def generate_trojan_links(self, user_dict: dict) -> dict:
-        return {
-            "WS TLS": self._build_trojan_link(user_dict, "ws"),
-            "gRPC TLS": self._build_trojan_link(user_dict, "grpc")
-        }
+        settings = self._get_transport_settings()
+        transport = settings["transport"]
+        links = {f"{transport.upper()} TLS": self._build_trojan_link(user_dict, transport)}
+        if settings["enable_grpc"]:
+            links["gRPC TLS"] = self._build_trojan_link(user_dict, "grpc")
+        return links
 
     def generate_ss_links(self, user_dict: dict) -> dict:
+        settings = self._get_transport_settings()
+        transport = settings["transport"]
+        label = transport.upper()
         return {
-            "WS TLS": self._build_ss_link(user_dict, "tls"),
-            "WS NTLS": self._build_ss_link(user_dict, "ntls")
+            f"{label} TLS": self._build_ss_link(user_dict, "tls"),
+            f"{label} NTLS": self._build_ss_link(user_dict, "ntls")
         }
 
     def create_user(
@@ -306,30 +329,34 @@ PersistentKeepalive = 25
         inbounds = self.xray.config.get("inbounds", [])
         if protocol == "vless":
             if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10001 for inbound in inbounds):
-                self.xray.generate_vless_ws(10001, settings["vless_path"])
-            if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10003 for inbound in inbounds):
-                self.xray.generate_vless_grpc(10003, service_name=settings["vless_grpc_service"])
+                self.xray.generate_vless(10001, transport=settings["transport"], path=settings["vless_path"])
+            if settings["enable_grpc"]:
+                if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10003 for inbound in inbounds):
+                    self.xray.generate_vless(10003, transport="grpc", service_name=settings["vless_grpc_service"])
         elif protocol == "vmess":
             if not any(inbound.get("protocol") == "vmess" and inbound.get("port") == 10002 for inbound in inbounds):
-                self.xray.generate_vmess_ws(10002, settings["vmess_path"])
+                self.xray.generate_vmess(10002, transport=settings["transport"], path=settings["vmess_path"])
         elif protocol == "trojan":
             if not any(inbound.get("protocol") == "trojan" and inbound.get("port") == 10004 for inbound in inbounds):
-                self.xray.generate_trojan_ws(10004, settings["trojan_path"])
+                self.xray.generate_trojan(10004, transport=settings["transport"], path=settings["trojan_path"])
         elif protocol == "shadowsocks":
             if not any(inbound.get("protocol") == "shadowsocks" and inbound.get("port") == 10005 for inbound in inbounds):
-                self.xray.generate_ss_ws(10005, settings["ss_path"])
+                self.xray.generate_ss(10005, transport=settings["transport"], path=settings["ss_path"])
 
     def generate_vless_link(self, user_dict: dict) -> str:
-        return self._build_vless_link(user_dict, "ws", True)
+        settings = self._get_transport_settings()
+        return self._build_vless_link(user_dict, settings["transport"], True)
 
     def generate_vless_grpc_link(self, user_dict: dict) -> str:
         return self._build_vless_link(user_dict, "grpc", True)
 
     def generate_vmess_link(self, user_dict: dict) -> str:
-        return self._build_vmess_link(user_dict, "ws", True)
+        settings = self._get_transport_settings()
+        return self._build_vmess_link(user_dict, settings["transport"], True)
 
     def generate_trojan_link(self, user_dict: dict) -> str:
-        return self._build_trojan_link(user_dict, "ws")
+        settings = self._get_transport_settings()
+        return self._build_trojan_link(user_dict, settings["transport"])
 
     def generate_ss_link(self, user_dict: dict) -> str:
         return self._build_ss_link(user_dict, "tls")

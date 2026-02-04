@@ -58,6 +58,8 @@ def main() -> None:
     db = VortexDB()
     settings = db.data.get("settings", {})
     default_ss_method = normalize_shadowsocks_method(settings.get("ss_method"))
+    transport = settings.get("transport", "xhttp")
+    enable_grpc = settings.get("enable_grpc", False)
     vless_path = settings.get("vless_path", "/vortex-vless")
     vmess_path = settings.get("vmess_path", "/vortex-vmess")
     trojan_path = settings.get("trojan_path", "/vortex-trojan")
@@ -67,20 +69,27 @@ def main() -> None:
     adapter.config = config
     inbounds = adapter.config.setdefault("inbounds", [])
     if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10001 for inbound in inbounds):
-        adapter.generate_vless_ws(10001, vless_path)
+        adapter.generate_vless(10001, transport=transport, path=vless_path)
         changed = True
-    if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10003 for inbound in inbounds):
-        adapter.generate_vless_grpc(10003, service_name=vless_grpc_service)
-        changed = True
+    if enable_grpc:
+        if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10003 for inbound in inbounds):
+            adapter.generate_vless(10003, transport="grpc", service_name=vless_grpc_service)
+            changed = True
     if not any(inbound.get("protocol") == "vmess" and inbound.get("port") == 10002 for inbound in inbounds):
-        adapter.generate_vmess_ws(10002, vmess_path)
+        adapter.generate_vmess(10002, transport=transport, path=vmess_path)
         changed = True
     if not any(inbound.get("protocol") == "trojan" and inbound.get("port") == 10004 for inbound in inbounds):
-        adapter.generate_trojan_ws(10004, trojan_path)
+        adapter.generate_trojan(10004, transport=transport, path=trojan_path)
         changed = True
     if not any(inbound.get("protocol") == "shadowsocks" and inbound.get("port") == 10005 for inbound in inbounds):
-        adapter.generate_ss_ws(10005, ss_path)
+        adapter.generate_ss(10005, transport=transport, path=ss_path)
         changed = True
+
+    if not enable_grpc:
+        adapter.config["inbounds"] = [
+            inbound for inbound in adapter.config.get("inbounds", [])
+            if not (inbound.get("protocol") == "vless" and inbound.get("port") == 10003)
+        ]
 
     for inbound in adapter.config.get("inbounds", []):
         if "settings" in inbound and "clients" in inbound["settings"]:

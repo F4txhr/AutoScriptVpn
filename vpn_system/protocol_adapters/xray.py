@@ -92,6 +92,22 @@ class XrayAdapter:
         ]
         self.config["inbounds"].append(inbound)
 
+    def _build_stream_settings(self, transport: str, path: str = "", service_name: str = "") -> Dict[str, Any]:
+        if transport == "grpc":
+            return {
+                "network": "grpc",
+                "grpcSettings": {"serviceName": service_name}
+            }
+        if transport == "xhttp":
+            return {
+                "network": "xhttp",
+                "xhttpSettings": {"path": path, "mode": "auto"}
+            }
+        return {
+            "network": "ws",
+            "wsSettings": {"path": path}
+        }
+
     def clear_inbounds(self):
         self.config["inbounds"] = [
             i for i in self.config["inbounds"] if i.get("tag") == "api"
@@ -120,45 +136,40 @@ class XrayAdapter:
         except:
             pass
 
-    def generate_vless_ws(self, port: int, path: str = "/vortex-vless"):
+    def generate_vless(self, port: int, transport: str = "ws", path: str = "/vortex-vless", service_name: str = "vortex-grpc"):
         settings = {"clients": [], "decryption": "none"}
-        stream = {
-            "network": "ws",
-            "wsSettings": {"path": path}
-        }
-        self.add_inbound("vless", port, f"vless-ws-{port}", settings, stream)
+        stream = self._build_stream_settings(transport, path=path, service_name=service_name)
+        self.add_inbound("vless", port, f"vless-{transport}-{port}", settings, stream)
+
+    def generate_vless_ws(self, port: int, path: str = "/vortex-vless"):
+        self.generate_vless(port, transport="ws", path=path)
+
+    def generate_vmess(self, port: int, transport: str = "ws", path: str = "/vortex-vmess"):
+        settings = {"clients": []}
+        stream = self._build_stream_settings(transport, path=path)
+        self.add_inbound("vmess", port, f"vmess-{transport}-{port}", settings, stream)
 
     def generate_vmess_ws(self, port: int, path: str = "/vortex-vmess"):
-        settings = {"clients": []}
-        stream = {
-            "network": "ws",
-            "wsSettings": {"path": path}
-        }
-        self.add_inbound("vmess", port, f"vmess-ws-{port}", settings, stream)
+        self.generate_vmess(port, transport="ws", path=path)
 
     def generate_vless_grpc(self, port: int, service_name: str = "vortex-grpc"):
-        settings = {"clients": [], "decryption": "none"}
-        stream = {
-            "network": "grpc",
-            "grpcSettings": {"serviceName": service_name}
-        }
-        self.add_inbound("vless", port, f"vless-grpc-{port}", settings, stream)
+        self.generate_vless(port, transport="grpc", service_name=service_name)
+
+    def generate_trojan(self, port: int, transport: str = "ws", path: str = "/vortex-trojan"):
+        settings = {"clients": []}
+        stream = self._build_stream_settings(transport, path=path)
+        self.add_inbound("trojan", port, f"trojan-{transport}-{port}", settings, stream)
 
     def generate_trojan_ws(self, port: int, path: str = "/vortex-trojan"):
-        settings = {"clients": []}
-        stream = {
-            "network": "ws",
-            "wsSettings": {"path": path}
-        }
-        self.add_inbound("trojan", port, f"trojan-ws-{port}", settings, stream)
+        self.generate_trojan(port, transport="ws", path=path)
+
+    def generate_ss(self, port: int, transport: str = "ws", path: str = "/vortex-ss"):
+        settings = {"clients": [], "method": "aes-256-gcm", "network": "tcp,udp"}
+        stream = self._build_stream_settings(transport, path=path)
+        self.add_inbound("shadowsocks", port, f"ss-{transport}-{port}", settings, stream)
 
     def generate_ss_ws(self, port: int, path: str = "/vortex-ss"):
-        settings = {"clients": [], "method": "aes-256-gcm", "network": "tcp,udp"}
-        stream = {
-            "network": "ws",
-            "wsSettings": {"path": path}
-        }
-        self.add_inbound("shadowsocks", port, f"ss-ws-{port}", settings, stream)
+        self.generate_ss(port, transport="ws", path=path)
 
     def generate_vless_quic(self, port: int, security: str = "none", key: str = "", header_type: str = "none"):
         settings = {"clients": [], "decryption": "none"}

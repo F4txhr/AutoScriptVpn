@@ -82,27 +82,32 @@ def main():
             return
 
         # 2. Setup Xray Base Config
+        db = VortexDB()
+        transport = db.data.get("settings", {}).get("transport", "xhttp")
+        enable_grpc = db.data.get("settings", {}).get("enable_grpc", False)
         xray = XrayAdapter()
         xray.clear_inbounds()
-        xray.generate_vless_ws(10001)
-        xray.generate_vmess_ws(10002)
-        xray.generate_vless_grpc(10003, service_name="vortex-grpc")
-        xray.generate_trojan_ws(10004)
-        xray.generate_ss_ws(10005)
+        xray.generate_vless(10001, transport=transport)
+        xray.generate_vmess(10002, transport=transport)
+        if enable_grpc:
+            xray.generate_vless(10003, transport="grpc", service_name="vortex-grpc")
+        xray.generate_trojan(10004, transport=transport)
+        xray.generate_ss(10005, transport=transport)
         xray.save()
-        print("[OK] Xray configuration generated (WS + gRPC + Trojan + SS).")
+        print(f"[OK] Xray configuration generated ({transport.upper()} + Trojan + SS).")
 
         # 3. Setup Nginx Virtual Host
         nginx = NginxAdapter()
         try:
-            nginx.generate_vhost(args.domain, 10001, 10002, 10004, 10005)
+            nginx.generate_vhost(args.domain, 10001, 10002, 10004, 10005, transport=transport)
             print("[OK] Nginx virtual host configured with full protocol support.")
         except Exception as e:
             print(f"[WARN] Nginx configuration failed: {e}")
 
         # 4. Save domain to DB
-        db = VortexDB()
         db.data["settings"]["domain"] = args.domain
+        db.data["settings"].setdefault("transport", transport)
+        db.data["settings"].setdefault("enable_grpc", enable_grpc)
         db.save()
 
         # 5. Restore users to config
