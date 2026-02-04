@@ -56,10 +56,22 @@ def main() -> None:
 
     changed = False
     db = VortexDB()
-    settings = db.data.get("settings", {})
+    settings = dict(db.data.get("settings", {}))
     default_ss_method = normalize_shadowsocks_method(settings.get("ss_method"))
     transport = settings.get("transport", "xhttp")
     enable_grpc = settings.get("enable_grpc", False)
+    settings_changed = False
+    if transport in {"ws", "grpc"}:
+        transport = "xhttp"
+        settings["transport"] = transport
+        settings_changed = True
+    if enable_grpc:
+        enable_grpc = False
+        settings["enable_grpc"] = enable_grpc
+        settings_changed = True
+    if settings_changed:
+        db.data["settings"] = settings
+        db.save()
     vless_path = settings.get("vless_path", "/vortex-vless")
     vmess_path = settings.get("vmess_path", "/vortex-vmess")
     trojan_path = settings.get("trojan_path", "/vortex-trojan")
