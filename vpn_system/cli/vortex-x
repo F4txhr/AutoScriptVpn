@@ -36,6 +36,18 @@ def main():
     add_u = user_sub.add_parser("add", help="Add new user")
     add_u.add_argument("-u", "--username", required=True)
     add_u.add_argument("-p", "--protocol", choices=["vless", "vmess", "trojan", "shadowsocks", "wireguard", "openvpn"], required=True)
+    add_u.add_argument("--connect-domain", help="Override connect domain/IP for generated links")
+    add_u.add_argument("--sni", help="Override TLS SNI (server_name)")
+    add_u.add_argument("--host", help="Override WS Host header")
+    add_u.add_argument("--port", type=int, help="Override port for generated links")
+    add_u.add_argument("--tls-insecure", action="store_true", help="Allow insecure TLS (skip verification)")
+    add_u.add_argument("--vless-path", help="Override VLESS WS path")
+    add_u.add_argument("--vmess-path", help="Override VMess WS path")
+    add_u.add_argument("--trojan-path", help="Override Trojan WS path")
+    add_u.add_argument("--ss-path", help="Override Shadowsocks WS path")
+    add_u.add_argument("--vless-grpc-service", help="Override VLESS gRPC service name")
+    add_u.add_argument("--ss-method", help="Override Shadowsocks method (default aes-256-gcm)")
+    add_u.add_argument("--ss-plugin-opts", help="Override Shadowsocks plugin opts string")
     
     clash_p = user_sub.add_parser("clash", help="Export Clash Meta config")
     clash_p.add_argument("-u", "--username", required=True)
@@ -111,6 +123,26 @@ def main():
         elif args.user_cmd == "add":
             from user_management.account_manager import AccountManager
             manager = AccountManager()
+            db = VortexDB()
+            settings_updates = {
+                "connect_domain": args.connect_domain,
+                "sni": args.sni,
+                "host": args.host,
+                "port": args.port,
+                "tls_insecure": args.tls_insecure if args.tls_insecure else None,
+                "vless_path": args.vless_path,
+                "vmess_path": args.vmess_path,
+                "trojan_path": args.trojan_path,
+                "ss_path": args.ss_path,
+                "vless_grpc_service": args.vless_grpc_service,
+                "ss_method": args.ss_method,
+                "ss_plugin_opts": args.ss_plugin_opts
+            }
+            if any(value is not None for value in settings_updates.values()):
+                for key, value in settings_updates.items():
+                    if value is not None:
+                        db.data["settings"][key] = value
+                db.save()
             try:
                 user = manager.create_user(args.username, args.protocol)
                 print(f"\n[SUCCESS] User {args.username} created!")
