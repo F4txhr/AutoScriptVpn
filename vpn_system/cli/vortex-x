@@ -29,6 +29,9 @@ def main():
     # Menu command
     subparsers.add_parser("menu", help="Launch interactive menu")
 
+    # Repair command
+    subparsers.add_parser("repair-xray", help="Repair Xray config and restart service")
+
     # User command
     user_p = subparsers.add_parser("user", help="Manage VPN users")
     user_sub = user_p.add_subparsers(dest="user_cmd")
@@ -68,6 +71,9 @@ def main():
 
     if args.command == "menu":
         os.system(f"bash {LIB_PATH}/menu/menu.sh")
+    elif args.command == "repair-xray":
+        os.system(f"python3 {LIB_PATH}/scripts/repair_xray_config.py")
+        os.system("systemctl restart xray")
     elif args.command == "init":
         print(f"Initializing Vortex-x with domain: {args.domain}")
         

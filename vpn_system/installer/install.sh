@@ -180,6 +180,10 @@ apply_hardening() {
         
         # Run Service Hardening
         python3 "$VORTEX_LIB/scripts/harden_services.py"
+
+        # Repair Xray config to ensure deprecated transports are removed
+        python3 "$VORTEX_LIB/scripts/repair_xray_config.py"
+        systemctl restart xray || true
         
         # SELinux Context for Nginx Proxy (Critical for RHEL/Alinux)
         if command -v getsebool &> /dev/null; then
