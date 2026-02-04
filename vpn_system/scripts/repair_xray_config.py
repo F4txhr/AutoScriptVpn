@@ -48,6 +48,9 @@ def main() -> None:
         if normalized != raw_config:
             with open(config_path, "w") as handle:
                 handle.write(normalized)
+            return
+        adapter = XrayAdapter(config_path=config_path)
+        adapter.save()
         return
 
     changed = False
