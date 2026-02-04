@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import os
 import sys
 
@@ -10,12 +11,38 @@ sys.path.append(LIB_PATH)
 from protocol_adapters.xray import XrayAdapter
 
 
+def normalize_shadowsocks_method(method: str) -> str:
+    if not method:
+        return "aes-256-gcm"
+    method = method.strip().lower()
+    if method not in XrayAdapter.SUPPORTED_SS_METHODS:
+        return "aes-256-gcm"
+    return method
+
+
 def main() -> None:
     config_path = "/usr/local/etc/xray/config.json"
     if not os.path.exists(config_path):
         return
-    adapter = XrayAdapter(config_path=config_path)
-    adapter.save()
+    try:
+        with open(config_path, "r") as handle:
+            config = json.load(handle)
+    except json.JSONDecodeError:
+        return
+
+    changed = False
+    for inbound in config.get("inbounds", []):
+        if inbound.get("protocol") != "shadowsocks":
+            continue
+        settings = inbound.setdefault("settings", {})
+        normalized_method = normalize_shadowsocks_method(settings.get("method"))
+        if settings.get("method") != normalized_method:
+            settings["method"] = normalized_method
+            changed = True
+
+    if changed:
+        with open(config_path, "w") as handle:
+            json.dump(config, handle, indent=4)
 
 
 if __name__ == "__main__":
