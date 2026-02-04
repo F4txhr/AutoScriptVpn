@@ -85,14 +85,18 @@ while true; do
                 echo "  14 days       : 384 GB"
                 echo "  30 days       : 512 GB"
                 read -p "Days (default 30, use 0 for trial): " days
-                read -p "Trial hours (default 1 for trial): " trial_hours
                 read -p "IP Limit (default 2): " ip_limit
                 read -p "Bandwidth Quota GB (0 = unlimited): " quota_gb
                 if [ -z "$days" ]; then
                     days=30
                 fi
-                if [ "$days" = "0" ] && [ -z "$trial_hours" ]; then
-                    trial_hours=1
+                if [ "$days" = "0" ]; then
+                    read -p "Trial hours (default 1 for trial): " trial_hours
+                    if [ -z "$trial_hours" ]; then
+                        trial_hours=1
+                    fi
+                else
+                    trial_hours=""
                 fi
                 if [ -z "$quota_gb" ]; then
                     if [ "$days" = "0" ]; then
