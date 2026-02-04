@@ -37,7 +37,8 @@ class NginxAdapter:
         vmess_port: int,
         trojan_port: int,
         ss_port: int = 0,
-        transport: str = "ws"
+        transport: str = "ws",
+        enable_grpc: bool = False
     ):
         self.cleanup_conflicts(domain)
 
@@ -69,6 +70,20 @@ class NginxAdapter:
         ss_location = ""
         if ss_port > 0:
             ss_location = build_location("/vortex-ss", ss_port)
+
+        grpc_location = ""
+        if enable_grpc:
+            grpc_location = """
+    # VLESS gRPC (Advanced Transport)
+    location /vortex-grpc {
+        if ($request_method != "POST") { return 404; }
+        client_max_body_size 0;
+        grpc_read_timeout 1h;
+        grpc_send_timeout 1h;
+        grpc_set_header Host $host;
+        grpc_pass grpc://127.0.0.1:10003;
+    }
+"""
 
         vhost_content = f"""
 server {{
@@ -103,15 +118,7 @@ server {{
     {build_location("/vortex-trojan", trojan_port)}
     {ss_location}
 
-    # VLESS gRPC (Advanced Transport)
-    location /vortex-grpc {{
-        if ($request_method != "POST") {{ return 404; }}
-        client_max_body_size 0;
-        grpc_read_timeout 1h;
-        grpc_send_timeout 1h;
-        grpc_set_header Host $host;
-        grpc_pass grpc://127.0.0.1:10003;
-    }}
+    {grpc_location}
 
     # Fallback / Fake Website
     location / {{

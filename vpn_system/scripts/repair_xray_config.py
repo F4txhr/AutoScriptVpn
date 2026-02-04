@@ -68,21 +68,49 @@ def main() -> None:
     adapter = XrayAdapter(config_path=config_path)
     adapter.config = config
     inbounds = adapter.config.setdefault("inbounds", [])
-    if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10001 for inbound in inbounds):
-        adapter.generate_vless(10001, transport=transport, path=vless_path)
+    def inbound_matches(protocol: str, port: int, network: str) -> bool:
+        for inbound in inbounds:
+            if inbound.get("protocol") != protocol or inbound.get("port") != port:
+                continue
+            stream = inbound.get("streamSettings", {})
+            if stream.get("network") == network:
+                return True
+        return False
+
+    def replace_inbound(protocol: str, port: int, build_fn) -> None:
+        nonlocal inbounds
+        adapter.config["inbounds"] = [
+            inbound for inbound in adapter.config.get("inbounds", [])
+            if not (inbound.get("protocol") == protocol and inbound.get("port") == port)
+        ]
+        inbounds = adapter.config["inbounds"]
+        build_fn()
+
+    if not inbound_matches("vless", 10001, transport):
+        def build_vless():
+            adapter.generate_vless(10001, transport=transport, path=vless_path)
+        replace_inbound("vless", 10001, build_vless)
         changed = True
     if enable_grpc:
-        if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10003 for inbound in inbounds):
-            adapter.generate_vless(10003, transport="grpc", service_name=vless_grpc_service)
+        if not inbound_matches("vless", 10003, "grpc"):
+            def build_vless_grpc():
+                adapter.generate_vless(10003, transport="grpc", service_name=vless_grpc_service)
+            replace_inbound("vless", 10003, build_vless_grpc)
             changed = True
-    if not any(inbound.get("protocol") == "vmess" and inbound.get("port") == 10002 for inbound in inbounds):
-        adapter.generate_vmess(10002, transport=transport, path=vmess_path)
+    if not inbound_matches("vmess", 10002, transport):
+        def build_vmess():
+            adapter.generate_vmess(10002, transport=transport, path=vmess_path)
+        replace_inbound("vmess", 10002, build_vmess)
         changed = True
-    if not any(inbound.get("protocol") == "trojan" and inbound.get("port") == 10004 for inbound in inbounds):
-        adapter.generate_trojan(10004, transport=transport, path=trojan_path)
+    if not inbound_matches("trojan", 10004, transport):
+        def build_trojan():
+            adapter.generate_trojan(10004, transport=transport, path=trojan_path)
+        replace_inbound("trojan", 10004, build_trojan)
         changed = True
-    if not any(inbound.get("protocol") == "shadowsocks" and inbound.get("port") == 10005 for inbound in inbounds):
-        adapter.generate_ss(10005, transport=transport, path=ss_path)
+    if not inbound_matches("shadowsocks", 10005, transport):
+        def build_ss():
+            adapter.generate_ss(10005, transport=transport, path=ss_path)
+        replace_inbound("shadowsocks", 10005, build_ss)
         changed = True
 
     if not enable_grpc:
@@ -90,6 +118,7 @@ def main() -> None:
             inbound for inbound in adapter.config.get("inbounds", [])
             if not (inbound.get("protocol") == "vless" and inbound.get("port") == 10003)
         ]
+        inbounds = adapter.config["inbounds"]
 
     for inbound in adapter.config.get("inbounds", []):
         if "settings" in inbound and "clients" in inbound["settings"]:

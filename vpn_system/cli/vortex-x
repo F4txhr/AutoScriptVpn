@@ -99,7 +99,15 @@ def main():
         # 3. Setup Nginx Virtual Host
         nginx = NginxAdapter()
         try:
-            nginx.generate_vhost(args.domain, 10001, 10002, 10004, 10005, transport=transport)
+            nginx.generate_vhost(
+                args.domain,
+                10001,
+                10002,
+                10004,
+                10005,
+                transport=transport,
+                enable_grpc=enable_grpc
+            )
             print("[OK] Nginx virtual host configured with full protocol support.")
         except Exception as e:
             print(f"[WARN] Nginx configuration failed: {e}")
