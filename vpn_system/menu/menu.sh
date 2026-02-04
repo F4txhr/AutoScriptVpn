@@ -75,14 +75,15 @@ while true; do
             if [ "$u_opt" == "1" ]; then
                 read -p "Username: " uname
                 read -p "Protocol (vless/vmess/trojan/shadowsocks/wireguard/openvpn): " proto
-                read -p "Host (optional): " host
-                read -p "NTLS Port (optional, default 80): " ntls_port
-                extra_args=()
+                host=$(python3 - <<'PY'
+from core.models import VortexDB
+db = VortexDB()
+print(db.data.get("settings", {}).get("domain", ""))
+PY
+)
+                extra_args=(--ntls-port 80)
                 if [ -n "$host" ]; then
                     extra_args+=(--host "$host")
-                fi
-                if [ -n "$ntls_port" ]; then
-                    extra_args+=(--ntls-port "$ntls_port")
                 fi
                 python3 "$LIB_PATH/cli/vortex-x" user add -u "$uname" -p "$proto" "${extra_args[@]}"
             elif [ "$u_opt" == "3" ]; then
