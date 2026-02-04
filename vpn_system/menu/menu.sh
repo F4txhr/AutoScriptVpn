@@ -78,12 +78,12 @@ while true; do
             if [ "$u_opt" == "1" ]; then
                 read -p "Username: " uname
                 read -p "Protocol (vless/vmess/trojan/shadowsocks/wireguard/openvpn): " proto
-                echo -e "\n${YELLOW}Bandwidth suggestion (GB):${NC}"
-                echo "  3 days  : 10 GB"
-                echo "  7 days  : 25 GB"
-                echo "  14 days : 50 GB"
-                echo "  30 days : 100 GB"
-                echo "  Trial   : 1 GB (1 hour)"
+                echo -e "\n${YELLOW}Bandwidth default (GB):${NC}"
+                echo "  Trial (1 hour): 2 GB"
+                echo "  3 days        : 128 GB"
+                echo "  7 days        : 256 GB"
+                echo "  14 days       : 384 GB"
+                echo "  30 days       : 512 GB"
                 read -p "Days (default 30, use 0 for trial): " days
                 read -p "Trial hours (default 1 for trial): " trial_hours
                 read -p "IP Limit (default 2): " ip_limit
@@ -93,6 +93,19 @@ while true; do
                 fi
                 if [ "$days" = "0" ] && [ -z "$trial_hours" ]; then
                     trial_hours=1
+                fi
+                if [ -z "$quota_gb" ]; then
+                    if [ "$days" = "0" ]; then
+                        quota_gb=2
+                    elif [ "$days" = "3" ]; then
+                        quota_gb=128
+                    elif [ "$days" = "7" ]; then
+                        quota_gb=256
+                    elif [ "$days" = "14" ]; then
+                        quota_gb=384
+                    elif [ "$days" = "30" ]; then
+                        quota_gb=512
+                    fi
                 fi
                 host=$(python3 - <<'PY'
 import os
