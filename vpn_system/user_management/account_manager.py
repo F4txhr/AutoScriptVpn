@@ -48,7 +48,7 @@ class AccountManager:
             params.append(("type", "ws"))
             params.append(("path", quote(settings["vless_path"], safe="")))
         elif transport == "grpc":
-            params.append(("mode", "grpc"))
+            params.append(("type", "grpc"))
             params.append(("serviceName", settings["vless_grpc_service"]))
         if settings["host"]:
             if transport == "grpc":

@@ -52,7 +52,42 @@ server {{
     listen 80;
     listen [::]:80;
     server_name {domain};
-    return 301 https://$host$request_uri;
+
+    # NTLS WebSocket (no TLS termination)
+    location /vortex-vless {{
+        if ($http_upgrade != "websocket") {{ return 404; }}
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:{vless_port};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }}
+
+    location /vortex-vmess {{
+        if ($http_upgrade != "websocket") {{ return 404; }}
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:{vmess_port};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }}
+
+    location /vortex-trojan {{
+        if ($http_upgrade != "websocket") {{ return 404; }}
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:{trojan_port};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }}
+    {ss_location}
+
+    location / {{
+        return 301 https://$host$request_uri;
+    }}
 }}
 
 server {{
