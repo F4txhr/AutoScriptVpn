@@ -29,7 +29,11 @@ class AccountManager:
             "vmess_path": settings.get("vmess_path", "/vortex-vmess"),
             "trojan_path": settings.get("trojan_path", "/vortex-trojan"),
             "ss_path": settings.get("ss_path", "/vortex-ss"),
-            "vless_grpc_service": settings.get("vless_grpc_service", "vortex-grpc"),
+            "upgrade_path": settings.get("upgrade_path"), # If None, use protocol default
+            "http_path": settings.get("http_path"),
+            "vless_grpc_service": settings.get("vless_grpc_service", "vortex-vless-grpc"),
+            "vmess_grpc_service": settings.get("vmess_grpc_service", "vortex-vmess-grpc"),
+            "trojan_grpc_service": settings.get("trojan_grpc_service", "vortex-trojan-grpc"),
             "ss_method": ss_method,
             "ss_plugin_opts": settings.get("ss_plugin_opts")
         }
@@ -50,6 +54,15 @@ class AccountManager:
         elif transport == "grpc":
             params.append(("type", "grpc"))
             params.append(("serviceName", settings["vless_grpc_service"]))
+        elif transport == "httpupgrade":
+            params.append(("type", "httpupgrade"))
+            path = settings["upgrade_path"] or "/vortex-vless-upgrade"
+            params.append(("path", quote(path, safe="")))
+        elif transport == "http":
+            params.append(("type", "http"))
+            path = settings["http_path"] or "/vortex-vless-http"
+            params.append(("path", quote(path, safe="")))
+
         if settings["host"]:
             if transport == "grpc":
                 params.append(("authority", settings["host"]))
@@ -82,7 +95,11 @@ class AccountManager:
         if transport == "ws":
             vmess_config["path"] = settings["vmess_path"]
         elif transport == "grpc":
-            vmess_config["path"] = settings["vless_grpc_service"]
+            vmess_config["path"] = settings["vmess_grpc_service"]
+        elif transport == "httpupgrade":
+            vmess_config["net"] = "httpupgrade"
+            vmess_config["path"] = settings["upgrade_path"] or "/vortex-vmess-upgrade"
+
         if settings["host"]:
             vmess_config["host"] = settings["host"]
         if tls_enabled:
@@ -106,8 +123,15 @@ class AccountManager:
         elif transport == "grpc":
             params.extend([
                 ("type", "grpc"),
-                ("serviceName", settings["vless_grpc_service"])
+                ("serviceName", settings["trojan_grpc_service"])
             ])
+        elif transport == "httpupgrade":
+            path = settings["upgrade_path"] or "/vortex-trojan-upgrade"
+            params.extend([
+                ("type", "httpupgrade"),
+                ("path", quote(path, safe=""))
+            ])
+
         if settings["host"]:
             params.append(("host", settings["host"]))
         if settings["sni"]:
@@ -143,19 +167,27 @@ class AccountManager:
             "WS TLS": self._build_vless_link(user_dict, "ws", True),
             "WS NTLS": self._build_vless_link(user_dict, "ws", False),
             "gRPC TLS": self._build_vless_link(user_dict, "grpc", True),
-            "gRPC NTLS": self._build_vless_link(user_dict, "grpc", False)
+            "gRPC NTLS": self._build_vless_link(user_dict, "grpc", False),
+            "HTTPX TLS": self._build_vless_link(user_dict, "httpupgrade", True),
+            "HTTPX NTLS": self._build_vless_link(user_dict, "httpupgrade", False),
+            "H2 TLS": self._build_vless_link(user_dict, "http", True)
         }
 
     def generate_vmess_links(self, user_dict: dict) -> dict:
         return {
             "WS TLS": self._build_vmess_link(user_dict, "ws", True),
-            "WS NTLS": self._build_vmess_link(user_dict, "ws", False)
+            "WS NTLS": self._build_vmess_link(user_dict, "ws", False),
+            "gRPC TLS": self._build_vmess_link(user_dict, "grpc", True),
+            "gRPC NTLS": self._build_vmess_link(user_dict, "grpc", False),
+            "HTTPX TLS": self._build_vmess_link(user_dict, "httpupgrade", True),
+            "HTTPX NTLS": self._build_vmess_link(user_dict, "httpupgrade", False)
         }
 
     def generate_trojan_links(self, user_dict: dict) -> dict:
         return {
             "WS TLS": self._build_trojan_link(user_dict, "ws"),
-            "gRPC TLS": self._build_trojan_link(user_dict, "grpc")
+            "gRPC TLS": self._build_trojan_link(user_dict, "grpc"),
+            "HTTPX TLS": self._build_trojan_link(user_dict, "httpupgrade")
         }
 
     def generate_ss_links(self, user_dict: dict) -> dict:
@@ -309,12 +341,28 @@ PersistentKeepalive = 25
                 self.xray.generate_vless_ws(10001, settings["vless_path"])
             if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10003 for inbound in inbounds):
                 self.xray.generate_vless_grpc(10003, service_name=settings["vless_grpc_service"])
+            if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10006 for inbound in inbounds):
+                path = settings["upgrade_path"] or "/vortex-vless-upgrade"
+                self.xray.generate_vless_httpupgrade(10006, path=path)
+            if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10007 for inbound in inbounds):
+                path = settings["http_path"] or "/vortex-vless-http"
+                self.xray.generate_vless_http(10007, path=path)
         elif protocol == "vmess":
             if not any(inbound.get("protocol") == "vmess" and inbound.get("port") == 10002 for inbound in inbounds):
                 self.xray.generate_vmess_ws(10002, settings["vmess_path"])
+            if not any(inbound.get("protocol") == "vmess" and inbound.get("port") == 10008 for inbound in inbounds):
+                self.xray.generate_vmess_grpc(10008, service_name=settings["vmess_grpc_service"])
+            if not any(inbound.get("protocol") == "vmess" and inbound.get("port") == 10009 for inbound in inbounds):
+                path = settings["upgrade_path"] or "/vortex-vmess-upgrade"
+                self.xray.generate_vmess_httpupgrade(10009, path=path)
         elif protocol == "trojan":
             if not any(inbound.get("protocol") == "trojan" and inbound.get("port") == 10004 for inbound in inbounds):
                 self.xray.generate_trojan_ws(10004, settings["trojan_path"])
+            if not any(inbound.get("protocol") == "trojan" and inbound.get("port") == 10010 for inbound in inbounds):
+                self.xray.generate_trojan_grpc(10010, service_name=settings["trojan_grpc_service"])
+            if not any(inbound.get("protocol") == "trojan" and inbound.get("port") == 10011 for inbound in inbounds):
+                path = settings["upgrade_path"] or "/vortex-trojan-upgrade"
+                self.xray.generate_trojan_httpupgrade(10011, path=path)
         elif protocol == "shadowsocks":
             if not any(inbound.get("protocol") == "shadowsocks" and inbound.get("port") == 10005 for inbound in inbounds):
                 self.xray.generate_ss_ws(10005, settings["ss_path"])
