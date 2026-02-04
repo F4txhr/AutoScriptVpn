@@ -20,13 +20,14 @@ fi
 show_header() {
     clear
     echo -e "${CYAN}  __      __         _                 __  "
-    echo -e "  \ \    / /        | |                \ \ "
-    echo -e "   \ \  / /__  _ __ | |_ _____  __      \ \ "
-    echo -e "    \ \/ / _ \| '__|| __/ _ \ \/ /_____  \ \ "
-    echo -e "     \  / (_) | |   | ||  __/>  <|_____| / / "
-    echo -e "      \/ \___/|_|    \__\___/_/\_\      /_/  ${NC}"
+    echo -e "  \\ \\    / /        | |                \\ \\ "
+    echo -e "   \\ \\  / /__  _ __ | |_ _____  __      \\ \\ "
+    echo -e "    \\ \\/ / _ \\| '__|| __/ _ \\ \\/ /_____  \\ \\ "
+    echo -e "     \\  / (_) | |   | ||  __/>  <|_____| / / "
+    echo -e "      \\/ \\___/|_|    \\__\\___/_/\\_\\      /_/  ${NC}"
+    echo -e "      ${BLUE}VORTEX-X CENTRAL PANEL${NC}"
     echo -e "      ${BLUE}Author: F4txhr | Professional VPN Engine${NC}"
-    echo -e "${BLUE}--------------------------------------------------${NC}"
+    echo -e "${BLUE}==================================================${NC}"
 
     # Call Python metrics engine
     METRICS=$(python3 "$LIB_PATH/monitoring/sys_metrics.py")
@@ -41,26 +42,28 @@ show_header() {
     USERS=$(echo $METRICS | jq -r '.total_users')
     SSL=$(echo $METRICS | jq -r '.ssl_expiry')
 
-    echo -e "  Host: ${GREEN}$HOSTNAME${NC} | Uptime: ${GREEN}$UPTIME${NC}"
-    echo -e "  CPU : ${YELLOW}$CPU${NC} | RAM: ${YELLOW}$RAM${NC} | Disk: ${YELLOW}$DISK${NC}"
-    echo -e "  Net : RX: ${BLUE}$RX${NC} | TX: ${BLUE}$TX${NC} | Users: ${PURPLE}$USERS${NC}"
-    echo -e "  SSL : ${CYAN}Expires: $SSL${NC}"
-    echo -e "${BLUE}--------------------------------------------------${NC}"
+    echo -e "  Host: ${GREEN}$HOSTNAME${NC} | Uptime: ${GREEN}$UPTIME${NC} | Users: ${PURPLE}$USERS${NC}"
+    echo -e "  CPU : ${YELLOW}$CPU${NC} | RAM: ${YELLOW}$RAM${NC} | Disk: ${YELLOW}$DISK${NC} | SSL: ${CYAN}$SSL${NC}"
+    echo -e "  Net : RX: ${BLUE}$RX${NC} | TX: ${BLUE}$TX${NC}"
+    echo -e "${BLUE}==================================================${NC}"
 }
 
 while true; do
     show_header
+    echo -e "  ${PURPLE}[Core]${NC}"
     echo -e "  1. VPN Status & Monitoring"
     echo -e "  2. Manage Users"
     echo -e "  3. Protocol Manager"
+    echo -e ""
+    echo -e "  ${PURPLE}[System]${NC}"
     echo -e "  4. Network & Firewall"
     echo -e "  5. SSL & Domain"
     echo -e "  6. Backup & Restore"
     echo -e "  7. System Audit (Doctor)"
     echo -e "  8. System Info"
     echo -e "  0. Exit"
-    echo -e "${BLUE}--------------------------------------------------${NC}"
-    read -p "  Select Option: " choice
+    echo -e "${BLUE}==================================================${NC}"
+    read -p "  Select Option (0-8): " choice
 
     case $choice in
         1) 
@@ -74,8 +77,71 @@ while true; do
             read -p "Select: " u_opt
             if [ "$u_opt" == "1" ]; then
                 read -p "Username: " uname
-                read -p "Protocol (vless/vmess/trojan/ssh): " proto
-                python3 "$LIB_PATH/cli/vortex-x" user add -u "$uname" -p "$proto"
+                read -p "Protocol (vless/vmess/trojan/shadowsocks/wireguard/openvpn): " proto
+                echo -e "\n${YELLOW}Bandwidth default (GB):${NC}"
+                echo "  Trial (1 hour): 2 GB"
+                echo "  3 days        : 64 GB"
+                echo "  7 days        : 128 GB"
+                echo "  14 days       : 256 GB"
+                echo "  30 days       : 512 GB"
+                read -p "Days (default 30, use 0 for trial): " days
+                read -p "IP Limit (default 2): " ip_limit
+                read -p "Bandwidth Quota GB (0 = unlimited): " quota_gb
+                if [ -z "$days" ]; then
+                    days=30
+                fi
+                if [ "$days" = "0" ]; then
+                    read -p "Trial hours (default 1 for trial): " trial_hours
+                    if [ -z "$trial_hours" ]; then
+                        trial_hours=1
+                    fi
+                else
+                    trial_hours=""
+                fi
+                if [ -z "$quota_gb" ]; then
+                    if [ "$days" = "0" ]; then
+                        quota_gb=2
+                    elif [ "$days" = "3" ]; then
+                        quota_gb=64
+                    elif [ "$days" = "7" ]; then
+                        quota_gb=128
+                    elif [ "$days" = "14" ]; then
+                        quota_gb=256
+                    elif [ "$days" = "30" ]; then
+                        quota_gb=512
+                    fi
+                fi
+                host=$(python3 - <<'PY'
+import os
+import sys
+
+lib_path = "/usr/local/lib/vortex-x"
+if not os.path.exists(lib_path):
+    lib_path = "."
+sys.path.append(lib_path)
+
+from core.models import VortexDB
+db = VortexDB()
+print(db.data.get("settings", {}).get("domain", ""))
+PY
+)
+                extra_args=(--ntls-port 80)
+                if [ -n "$host" ]; then
+                    extra_args+=(--host "$host")
+                fi
+                if [ -n "$days" ]; then
+                    extra_args+=(--days "$days")
+                fi
+                if [ -n "$trial_hours" ]; then
+                    extra_args+=(--trial-hours "$trial_hours")
+                fi
+                if [ -n "$ip_limit" ]; then
+                    extra_args+=(--ip-limit "$ip_limit")
+                fi
+                if [ -n "$quota_gb" ]; then
+                    extra_args+=(--quota-gb "$quota_gb")
+                fi
+                python3 "$LIB_PATH/cli/vortex-x" user add -u "$uname" -p "$proto" "${extra_args[@]}"
             elif [ "$u_opt" == "3" ]; then
                  read -p "Username: " uname
                  python3 "$LIB_PATH/cli/vortex-x" user clash -u "$uname"

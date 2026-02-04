@@ -36,6 +36,23 @@ def main():
     add_u = user_sub.add_parser("add", help="Add new user")
     add_u.add_argument("-u", "--username", required=True)
     add_u.add_argument("-p", "--protocol", choices=["vless", "vmess", "trojan", "shadowsocks", "wireguard", "openvpn"], required=True)
+    add_u.add_argument("--connect-domain", help="Override connect domain/IP for generated links")
+    add_u.add_argument("--sni", help="Override TLS SNI (server_name)")
+    add_u.add_argument("--host", help="Override WS Host header")
+    add_u.add_argument("--port", type=int, help="Override port for generated links")
+    add_u.add_argument("--ntls-port", type=int, help="Override port for NTLS links (default 80)")
+    add_u.add_argument("--tls-insecure", action="store_true", help="Allow insecure TLS (skip verification)")
+    add_u.add_argument("--vless-path", help="Override VLESS WS path")
+    add_u.add_argument("--vmess-path", help="Override VMess WS path")
+    add_u.add_argument("--trojan-path", help="Override Trojan WS path")
+    add_u.add_argument("--ss-path", help="Override Shadowsocks WS path")
+    add_u.add_argument("--vless-grpc-service", help="Override VLESS gRPC service name")
+    add_u.add_argument("--ss-method", help="Override Shadowsocks method (default aes-256-gcm)")
+    add_u.add_argument("--ss-plugin-opts", help="Override Shadowsocks plugin opts string")
+    add_u.add_argument("--days", type=int, default=30, help="Account validity in days")
+    add_u.add_argument("--ip-limit", type=int, default=2, help="Max concurrent IPs")
+    add_u.add_argument("--quota-gb", type=int, default=0, help="Bandwidth quota in GB (0 = unlimited)")
+    add_u.add_argument("--trial-hours", type=int, default=0, help="Trial duration in hours (overrides days)")
     
     clash_p = user_sub.add_parser("clash", help="Export Clash Meta config")
     clash_p.add_argument("-u", "--username", required=True)
@@ -111,8 +128,36 @@ def main():
         elif args.user_cmd == "add":
             from user_management.account_manager import AccountManager
             manager = AccountManager()
+            db = VortexDB()
+            settings_updates = {
+                "connect_domain": args.connect_domain,
+                "sni": args.sni,
+                "host": args.host,
+                "port": args.port,
+                "ntls_port": args.ntls_port,
+                "tls_insecure": args.tls_insecure if args.tls_insecure else None,
+                "vless_path": args.vless_path,
+                "vmess_path": args.vmess_path,
+                "trojan_path": args.trojan_path,
+                "ss_path": args.ss_path,
+                "vless_grpc_service": args.vless_grpc_service,
+                "ss_method": args.ss_method,
+                "ss_plugin_opts": args.ss_plugin_opts
+            }
+            if any(value is not None for value in settings_updates.values()):
+                for key, value in settings_updates.items():
+                    if value is not None:
+                        db.data["settings"][key] = value
+                db.save()
             try:
-                user = manager.create_user(args.username, args.protocol)
+                user = manager.create_user(
+                    args.username,
+                    args.protocol,
+                    days=args.days,
+                    ip_limit=args.ip_limit,
+                    quota_gb=args.quota_gb,
+                    trial_hours=args.trial_hours
+                )
                 print(f"\n[SUCCESS] User {args.username} created!")
                 print(f"Protocol : {args.protocol}")
                 print(f"UUID     : {user['uuid']}")
@@ -120,14 +165,17 @@ def main():
                 
                 print("\n--- CONNECTION LINK ---")
                 if args.protocol == "vless":
-                    print(f"WS TLS   : {manager.generate_vless_link(user)}")
-                    print(f"gRPC TLS : {manager.generate_vless_grpc_link(user)}")
+                    for label, link in manager.generate_vless_links(user).items():
+                        print(f"{label:<8}: {link}")
                 elif args.protocol == "vmess":
-                    print(f"WS TLS   : {manager.generate_vmess_link(user)}")
+                    for label, link in manager.generate_vmess_links(user).items():
+                        print(f"{label:<8}: {link}")
                 elif args.protocol == "trojan":
-                    print(f"WS TLS   : {manager.generate_trojan_link(user)}")
+                    for label, link in manager.generate_trojan_links(user).items():
+                        print(f"{label:<8}: {link}")
                 elif args.protocol == "shadowsocks":
-                    print(f"SS + WS  : {manager.generate_ss_link(user)}")
+                    for label, link in manager.generate_ss_links(user).items():
+                        print(f"{label:<8}: {link}")
                 elif args.protocol == "wireguard":
                     print(manager.generate_wg_config(user))
                 print("-----------------------\n")
