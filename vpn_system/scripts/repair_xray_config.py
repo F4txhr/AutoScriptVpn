@@ -31,9 +31,15 @@ def main() -> None:
     try:
         config = json.loads(raw_config)
     except json.JSONDecodeError:
+        def normalize_match(match: re.Match) -> str:
+            prefix = match.group(1)
+            method = match.group(2)
+            normalized = normalize_shadowsocks_method(method)
+            return f'{prefix}"{normalized}"'
+
         normalized = re.sub(
-            r'("method"\s*:\s*)""',
-            r'\1"aes-256-gcm"',
+            r'("method"\s*:\s*)"([^"]*)"',
+            normalize_match,
             raw_config,
             flags=re.IGNORECASE,
         )
