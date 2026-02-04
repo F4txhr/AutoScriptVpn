@@ -49,10 +49,51 @@ class NginxAdapter:
 
         vhost_content = f"""
 server {{
-    listen 80;
-    listen [::]:80;
-    server_name {domain};
-    return 301 https://$host$request_uri;
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name {domain} _;
+
+    # NTLS WebSocket (no TLS termination)
+    location /vortex-vless {{
+        if ($http_upgrade != "websocket") {{ return 404; }}
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:{vless_port};
+        proxy_http_version 1.1;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }}
+
+    location /vortex-vmess {{
+        if ($http_upgrade != "websocket") {{ return 404; }}
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:{vmess_port};
+        proxy_http_version 1.1;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }}
+
+    location /vortex-trojan {{
+        if ($http_upgrade != "websocket") {{ return 404; }}
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:{trojan_port};
+        proxy_http_version 1.1;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }}
+    {ss_location}
+
+    location / {{
+        return 301 https://$host$request_uri;
+    }}
 }}
 
 server {{
@@ -71,6 +112,8 @@ server {{
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{vless_port};
         proxy_http_version 1.1;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
@@ -82,6 +125,8 @@ server {{
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{vmess_port};
         proxy_http_version 1.1;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
@@ -93,6 +138,8 @@ server {{
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{trojan_port};
         proxy_http_version 1.1;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
@@ -105,6 +152,7 @@ server {{
         client_max_body_size 0;
         grpc_read_timeout 1h;
         grpc_send_timeout 1h;
+        grpc_set_header Host $host;
         grpc_pass grpc://127.0.0.1:10003;
     }}
 
