@@ -4,6 +4,13 @@ import subprocess
 from typing import Dict, Any, List
 
 class XrayAdapter:
+    SUPPORTED_SS_METHODS = {
+        "aes-128-gcm",
+        "aes-256-gcm",
+        "chacha20-ietf-poly1305",
+        "xchacha20-ietf-poly1305",
+    }
+
     def __init__(self, config_path: str = "/usr/local/etc/xray/config.json"):
         self.config_path = config_path
         self.config = self._load_default_config()
@@ -19,6 +26,14 @@ class XrayAdapter:
             if key != "log":
                 new_config[key] = value
         self.config = new_config
+
+    def _normalize_shadowsocks_method(self, method: str) -> str:
+        if not method:
+            return "aes-256-gcm"
+        method = method.strip().lower()
+        if method not in self.SUPPORTED_SS_METHODS:
+            return "aes-256-gcm"
+        return method
 
     def _load_default_config(self) -> Dict[str, Any]:
         if os.path.exists(self.config_path):
@@ -83,6 +98,10 @@ class XrayAdapter:
         ]
 
     def save(self):
+        for inbound in self.config.get("inbounds", []):
+            if inbound.get("protocol") == "shadowsocks":
+                settings = inbound.setdefault("settings", {})
+                settings["method"] = self._normalize_shadowsocks_method(settings.get("method"))
         os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
         with open(self.config_path, 'w') as f:
             json.dump(self.config, f, indent=4)

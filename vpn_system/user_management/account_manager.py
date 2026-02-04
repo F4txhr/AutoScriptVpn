@@ -14,6 +14,9 @@ class AccountManager:
         settings = self.db.data.get("settings", {})
         domain = settings.get("domain", "YOUR_DOMAIN")
         address = settings.get("connect_domain") or domain
+        ss_method = settings.get("ss_method") or "aes-256-gcm"
+        if ss_method not in XrayAdapter.SUPPORTED_SS_METHODS:
+            ss_method = "aes-256-gcm"
         return {
             "domain": domain,
             "address": address,
@@ -27,7 +30,7 @@ class AccountManager:
             "trojan_path": settings.get("trojan_path", "/vortex-trojan"),
             "ss_path": settings.get("ss_path", "/vortex-ss"),
             "vless_grpc_service": settings.get("vless_grpc_service", "vortex-grpc"),
-            "ss_method": settings.get("ss_method", "aes-256-gcm"),
+            "ss_method": ss_method,
             "ss_plugin_opts": settings.get("ss_plugin_opts")
         }
 
