@@ -149,8 +149,7 @@ class AccountManager:
     def generate_vmess_links(self, user_dict: dict) -> dict:
         return {
             "WS TLS": self._build_vmess_link(user_dict, "ws", True),
-            "WS NTLS": self._build_vmess_link(user_dict, "ws", False),
-            "gRPC TLS": self._build_vmess_link(user_dict, "grpc", True)
+            "WS NTLS": self._build_vmess_link(user_dict, "ws", False)
         }
 
     def generate_trojan_links(self, user_dict: dict) -> dict:
@@ -275,6 +274,7 @@ PersistentKeepalive = 25
         print("[SUCCESS] Sync complete.")
 
     def _add_to_xray(self, user: UserAccount) -> bool:
+        self._ensure_inbounds(user.protocol)
         found_inbound = False
         for inbound in self.xray.config.get("inbounds", []):
             if inbound.get("protocol") == user.protocol:
@@ -300,6 +300,24 @@ PersistentKeepalive = 25
                     inbound["settings"]["clients"].append(client)
                     found_inbound = True
         return found_inbound
+
+    def _ensure_inbounds(self, protocol: str) -> None:
+        settings = self._get_transport_settings()
+        inbounds = self.xray.config.get("inbounds", [])
+        if protocol == "vless":
+            if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10001 for inbound in inbounds):
+                self.xray.generate_vless_ws(10001, settings["vless_path"])
+            if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10003 for inbound in inbounds):
+                self.xray.generate_vless_grpc(10003, service_name=settings["vless_grpc_service"])
+        elif protocol == "vmess":
+            if not any(inbound.get("protocol") == "vmess" and inbound.get("port") == 10002 for inbound in inbounds):
+                self.xray.generate_vmess_ws(10002, settings["vmess_path"])
+        elif protocol == "trojan":
+            if not any(inbound.get("protocol") == "trojan" and inbound.get("port") == 10004 for inbound in inbounds):
+                self.xray.generate_trojan_ws(10004, settings["trojan_path"])
+        elif protocol == "shadowsocks":
+            if not any(inbound.get("protocol") == "shadowsocks" and inbound.get("port") == 10005 for inbound in inbounds):
+                self.xray.generate_ss_ws(10005, settings["ss_path"])
 
     def generate_vless_link(self, user_dict: dict) -> str:
         return self._build_vless_link(user_dict, "ws", True)
