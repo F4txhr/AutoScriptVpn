@@ -76,6 +76,14 @@ while true; do
                 read -p "Username: " uname
                 read -p "Protocol (vless/vmess/trojan/shadowsocks/wireguard/openvpn): " proto
                 host=$(python3 - <<'PY'
+import os
+import sys
+
+lib_path = "/usr/local/lib/vortex-x"
+if not os.path.exists(lib_path):
+    lib_path = "."
+sys.path.append(lib_path)
+
 from core.models import VortexDB
 db = VortexDB()
 print(db.data.get("settings", {}).get("domain", ""))
