@@ -122,7 +122,8 @@ class AccountManager:
         import urllib.parse
         settings = self._get_transport_settings()
         domain = settings["address"]
-        auth = base64.urlsafe_b64encode(
+        # Prefer broad client compatibility (including NekoBox)
+        auth = base64.b64encode(
             f"{settings['ss_method']}:{user_dict['uuid']}".encode()
         ).decode().rstrip("=")
         if settings["ss_plugin_opts"]:
@@ -141,7 +142,8 @@ class AccountManager:
             if settings["host"]:
                 plugin_parts.append(f"host={settings['host']}")
             plugin_opts = ";".join(plugin_parts)
-        encoded_opts = urllib.parse.quote(plugin_opts)
+        # Keep plugin separators visible for clients that are strict in parser behavior
+        encoded_opts = urllib.parse.quote(plugin_opts, safe=';=/:,')
         port = settings["port"] if tls_mode == "tls" else settings["ntls_port"]
         return f"ss://{auth}@{domain}:{port}?plugin={encoded_opts}#{user_dict['username']}"
 
