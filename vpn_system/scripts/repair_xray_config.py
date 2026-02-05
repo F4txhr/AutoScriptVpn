@@ -13,6 +13,23 @@ from protocol_adapters.xray import XrayAdapter
 from core.models import VortexDB
 
 
+
+
+def _matches_ws(inbound: dict, path: str) -> bool:
+    stream = inbound.get("streamSettings", {})
+    return (
+        stream.get("network") == "ws" and
+        stream.get("wsSettings", {}).get("path") == path
+    )
+
+
+def _matches_grpc(inbound: dict, service_name: str) -> bool:
+    stream = inbound.get("streamSettings", {})
+    return (
+        stream.get("network") == "grpc" and
+        stream.get("grpcSettings", {}).get("serviceName") == service_name
+    )
+
 def normalize_shadowsocks_method(method: str) -> str:
     if not method:
         return "aes-256-gcm"
@@ -66,19 +83,44 @@ def main() -> None:
     adapter = XrayAdapter(config_path=config_path)
     adapter.config = config
     inbounds = adapter.config.setdefault("inbounds", [])
-    if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10001 for inbound in inbounds):
+    if not any(
+        inbound.get("protocol") == "vless" and
+        inbound.get("port") == 10001 and
+        _matches_ws(inbound, vless_path)
+        for inbound in inbounds
+    ):
         adapter.generate_vless_ws(10001, vless_path)
         changed = True
-    if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10003 for inbound in inbounds):
+    if not any(
+        inbound.get("protocol") == "vless" and
+        inbound.get("port") == 10003 and
+        _matches_grpc(inbound, vless_grpc_service)
+        for inbound in inbounds
+    ):
         adapter.generate_vless_grpc(10003, service_name=vless_grpc_service)
         changed = True
-    if not any(inbound.get("protocol") == "vmess" and inbound.get("port") == 10002 for inbound in inbounds):
+    if not any(
+        inbound.get("protocol") == "vmess" and
+        inbound.get("port") == 10002 and
+        _matches_ws(inbound, vmess_path)
+        for inbound in inbounds
+    ):
         adapter.generate_vmess_ws(10002, vmess_path)
         changed = True
-    if not any(inbound.get("protocol") == "trojan" and inbound.get("port") == 10004 for inbound in inbounds):
+    if not any(
+        inbound.get("protocol") == "trojan" and
+        inbound.get("port") == 10004 and
+        _matches_ws(inbound, trojan_path)
+        for inbound in inbounds
+    ):
         adapter.generate_trojan_ws(10004, trojan_path)
         changed = True
-    if not any(inbound.get("protocol") == "shadowsocks" and inbound.get("port") == 10005 for inbound in inbounds):
+    if not any(
+        inbound.get("protocol") == "shadowsocks" and
+        inbound.get("port") == 10005 and
+        _matches_ws(inbound, ss_path)
+        for inbound in inbounds
+    ):
         adapter.generate_ss_ws(10005, ss_path)
         changed = True
 

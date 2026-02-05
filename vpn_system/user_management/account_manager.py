@@ -302,20 +302,60 @@ PersistentKeepalive = 25
 
     def _ensure_inbounds(self, protocol: str) -> None:
         settings = self._get_transport_settings()
+
+        def _matches_ws(inbound: dict, path: str) -> bool:
+            stream = inbound.get("streamSettings", {})
+            return (
+                stream.get("network") == "ws" and
+                stream.get("wsSettings", {}).get("path") == path
+            )
+
+        def _matches_grpc(inbound: dict, service_name: str) -> bool:
+            stream = inbound.get("streamSettings", {})
+            return (
+                stream.get("network") == "grpc" and
+                stream.get("grpcSettings", {}).get("serviceName") == service_name
+            )
+
         inbounds = self.xray.config.get("inbounds", [])
         if protocol == "vless":
-            if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10001 for inbound in inbounds):
+            if not any(
+                inbound.get("protocol") == "vless" and
+                inbound.get("port") == 10001 and
+                _matches_ws(inbound, settings["vless_path"])
+                for inbound in inbounds
+            ):
                 self.xray.generate_vless_ws(10001, settings["vless_path"])
-            if not any(inbound.get("protocol") == "vless" and inbound.get("port") == 10003 for inbound in inbounds):
+            if not any(
+                inbound.get("protocol") == "vless" and
+                inbound.get("port") == 10003 and
+                _matches_grpc(inbound, settings["vless_grpc_service"])
+                for inbound in inbounds
+            ):
                 self.xray.generate_vless_grpc(10003, service_name=settings["vless_grpc_service"])
         elif protocol == "vmess":
-            if not any(inbound.get("protocol") == "vmess" and inbound.get("port") == 10002 for inbound in inbounds):
+            if not any(
+                inbound.get("protocol") == "vmess" and
+                inbound.get("port") == 10002 and
+                _matches_ws(inbound, settings["vmess_path"])
+                for inbound in inbounds
+            ):
                 self.xray.generate_vmess_ws(10002, settings["vmess_path"])
         elif protocol == "trojan":
-            if not any(inbound.get("protocol") == "trojan" and inbound.get("port") == 10004 for inbound in inbounds):
+            if not any(
+                inbound.get("protocol") == "trojan" and
+                inbound.get("port") == 10004 and
+                _matches_ws(inbound, settings["trojan_path"])
+                for inbound in inbounds
+            ):
                 self.xray.generate_trojan_ws(10004, settings["trojan_path"])
         elif protocol == "shadowsocks":
-            if not any(inbound.get("protocol") == "shadowsocks" and inbound.get("port") == 10005 for inbound in inbounds):
+            if not any(
+                inbound.get("protocol") == "shadowsocks" and
+                inbound.get("port") == 10005 and
+                _matches_ws(inbound, settings["ss_path"])
+                for inbound in inbounds
+            ):
                 self.xray.generate_ss_ws(10005, settings["ss_path"])
 
     def generate_vless_link(self, user_dict: dict) -> str:
