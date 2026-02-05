@@ -195,6 +195,28 @@ def main():
                     if value is not None:
                         db.data["settings"][key] = value
                 db.save()
+
+                # Keep Nginx routes aligned with updated transport settings
+                domain = db.data.get("settings", {}).get("domain")
+                if domain:
+                    from protocol_adapters.nginx import NginxAdapter
+                    nginx = NginxAdapter()
+                    current = db.data.get("settings", {})
+                    try:
+                        nginx.generate_vhost(
+                            domain,
+                            10001,
+                            10002,
+                            10004,
+                            10005,
+                            vless_path=current.get("vless_path", "/vortex-vless"),
+                            vmess_path=current.get("vmess_path", "/vortex-vmess"),
+                            trojan_path=current.get("trojan_path", "/vortex-trojan"),
+                            ss_path=current.get("ss_path", "/vortex-ss"),
+                            grpc_service=current.get("vless_grpc_service", "vortex-grpc")
+                        )
+                    except Exception as e:
+                        print(f"[WARN] Failed to refresh Nginx routes after settings update: {e}")
             try:
                 user = manager.create_user(
                     args.username,
