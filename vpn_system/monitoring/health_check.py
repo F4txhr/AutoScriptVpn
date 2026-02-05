@@ -7,6 +7,7 @@ import grp
 import subprocess
 import sys
 from datetime import datetime
+from typing import List, Tuple
 
 XRAY_CONFIG_PATH = "/usr/local/etc/xray/config.json"
 XRAY_LOG_DIR = "/var/log/xray"
@@ -22,7 +23,7 @@ EXPECTED_INBOUNDS = {
 }
 
 
-def run_cmd(cmd: list[str]) -> tuple[int, str, str]:
+def run_cmd(cmd: List[str]) -> Tuple[int, str, str]:
     try:
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
