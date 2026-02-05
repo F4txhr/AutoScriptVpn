@@ -142,8 +142,7 @@ class AccountManager:
         return {
             "WS TLS": self._build_vless_link(user_dict, "ws", True),
             "WS NTLS": self._build_vless_link(user_dict, "ws", False),
-            "gRPC TLS": self._build_vless_link(user_dict, "grpc", True),
-            "gRPC NTLS": self._build_vless_link(user_dict, "grpc", False)
+            "gRPC TLS": self._build_vless_link(user_dict, "grpc", True)
         }
 
     def generate_vmess_links(self, user_dict: dict) -> dict:
@@ -154,8 +153,7 @@ class AccountManager:
 
     def generate_trojan_links(self, user_dict: dict) -> dict:
         return {
-            "WS TLS": self._build_trojan_link(user_dict, "ws"),
-            "gRPC TLS": self._build_trojan_link(user_dict, "grpc")
+            "WS TLS": self._build_trojan_link(user_dict, "ws")
         }
 
     def generate_ss_links(self, user_dict: dict) -> dict:
@@ -293,10 +291,11 @@ PersistentKeepalive = 25
                     found_inbound = True
                 
                 elif user.protocol == "shadowsocks":
+                    settings = self._get_transport_settings()
                     client = {"password": user.uuid, "email": user.username}
                     if "clients" not in inbound["settings"]:
                         inbound["settings"]["clients"] = []
-                    inbound["settings"]["method"] = "aes-256-gcm"
+                    inbound["settings"]["method"] = settings["ss_method"]
                     inbound["settings"]["clients"].append(client)
                     found_inbound = True
         return found_inbound

@@ -92,18 +92,30 @@ def main():
         xray.save()
         print("[OK] Xray configuration generated (WS + gRPC + Trojan + SS).")
 
-        # 3. Setup Nginx Virtual Host
-        nginx = NginxAdapter()
-        try:
-            nginx.generate_vhost(args.domain, 10001, 10002, 10004, 10005)
-            print("[OK] Nginx virtual host configured with full protocol support.")
-        except Exception as e:
-            print(f"[WARN] Nginx configuration failed: {e}")
-
-        # 4. Save domain to DB
+        # 3. Save domain to DB
         db = VortexDB()
         db.data["settings"]["domain"] = args.domain
         db.save()
+
+        # 4. Setup Nginx Virtual Host (follow configurable paths/service names)
+        settings = db.data.get("settings", {})
+        nginx = NginxAdapter()
+        try:
+            nginx.generate_vhost(
+                args.domain,
+                10001,
+                10002,
+                10004,
+                10005,
+                vless_path=settings.get("vless_path", "/vortex-vless"),
+                vmess_path=settings.get("vmess_path", "/vortex-vmess"),
+                trojan_path=settings.get("trojan_path", "/vortex-trojan"),
+                ss_path=settings.get("ss_path", "/vortex-ss"),
+                grpc_service=settings.get("vless_grpc_service", "vortex-grpc")
+            )
+            print("[OK] Nginx virtual host configured with full protocol support.")
+        except Exception as e:
+            print(f"[WARN] Nginx configuration failed: {e}")
 
         # 5. Restore users to config
         from user_management.account_manager import AccountManager
