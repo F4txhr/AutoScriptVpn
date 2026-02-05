@@ -29,6 +29,11 @@ def main():
     # Menu command
     subparsers.add_parser("menu", help="Launch interactive menu")
 
+    # Runtime sync command
+    sync_p = subparsers.add_parser("sync", help="Sync local vpn_system source into runtime path")
+    sync_p.add_argument("--source", default="./vpn_system", help="Path to local vpn_system source directory")
+    sync_p.add_argument("--target", default="/usr/local/lib/vortex-x", help="Runtime target directory")
+
     # User command
     user_p = subparsers.add_parser("user", help="Manage VPN users")
     user_sub = user_p.add_subparsers(dest="user_cmd")
@@ -68,6 +73,17 @@ def main():
 
     if args.command == "menu":
         os.system(f"bash {LIB_PATH}/menu/menu.sh")
+    elif args.command == "sync":
+        import shutil
+        source = os.path.abspath(args.source)
+        target = os.path.abspath(args.target)
+        if not os.path.isdir(source):
+            print(f"[ERROR] Source directory not found: {source}")
+            return
+        os.makedirs(target, exist_ok=True)
+        shutil.copytree(source, target, dirs_exist_ok=True)
+        os.chmod(os.path.join(target, "cli", "vortex-x"), 0o755)
+        print(f"[OK] Synced runtime files: {source} -> {target}")
     elif args.command == "init":
         print(f"Initializing Vortex-x with domain: {args.domain}")
         

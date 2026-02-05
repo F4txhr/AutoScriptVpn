@@ -216,6 +216,17 @@ EOF
 }
 
 main() {
+    if [ "$1" = "--sync-runtime" ]; then
+        log_info "Syncing runtime files only..."
+        mkdir -p "$VORTEX_LIB"
+        cp -r ./vpn_system/* "$VORTEX_LIB/"
+        ln -sf "$VORTEX_LIB/cli/vortex-x" "$VORTEX_BIN"
+        chmod +x "$VORTEX_BIN"
+        ln -sf "$VORTEX_BIN" "/usr/bin/vortex-x"
+        log_success "Runtime sync complete."
+        exit 0
+    fi
+
     check_env
     detect_os
     
