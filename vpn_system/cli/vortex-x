@@ -20,6 +20,7 @@ def main():
         formatter_class=argparse.RawTextHelpFormatter
     )
     
+    parser.add_argument("--version", action="store_true", help="Print CLI source path")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
     # Init command
@@ -29,6 +30,15 @@ def main():
     # Menu command
     subparsers.add_parser("menu", help="Launch interactive menu")
 
+    # Runtime sync command
+    sync_p = subparsers.add_parser("sync", help="Sync local vpn_system source into runtime path")
+    sync_p.add_argument("--source", default="./vpn_system", help="Path to local vpn_system source directory")
+    sync_p.add_argument("--target", default="/usr/local/lib/vortex-x", help="Runtime target directory")
+
+    # Doctor command
+    doctor_p = subparsers.add_parser("doctor", help="Run health checks for services/config/permissions")
+    doctor_p.add_argument("--json", action="store_true", help="Print doctor report as JSON")
+
     # User command
     user_p = subparsers.add_parser("user", help="Manage VPN users")
     user_sub = user_p.add_subparsers(dest="user_cmd")
@@ -37,8 +47,11 @@ def main():
     add_u.add_argument("-u", "--username", required=True)
     add_u.add_argument("-p", "--protocol", choices=["vless", "vmess", "trojan", "shadowsocks", "wireguard", "openvpn"], required=True)
     add_u.add_argument("--connect-domain", help="Override connect domain/IP for generated links")
+    add_u.add_argument("--bug-address", help="Alias of --connect-domain (common VPN bug host usage)")
     add_u.add_argument("--sni", help="Override TLS SNI (server_name)")
+    add_u.add_argument("--bug-sni", help="Alias of --sni for bug configuration workflows")
     add_u.add_argument("--host", help="Override WS Host header")
+    add_u.add_argument("--bug-host", help="Alias of --host for bug configuration workflows")
     add_u.add_argument("--port", type=int, help="Override port for generated links")
     add_u.add_argument("--ntls-port", type=int, help="Override port for NTLS links (default 80)")
     add_u.add_argument("--tls-insecure", action="store_true", help="Allow insecure TLS (skip verification)")
@@ -49,6 +62,7 @@ def main():
     add_u.add_argument("--vless-grpc-service", help="Override VLESS gRPC service name")
     add_u.add_argument("--ss-method", help="Override Shadowsocks method (default aes-256-gcm)")
     add_u.add_argument("--ss-plugin-opts", help="Override Shadowsocks plugin opts string")
+    add_u.add_argument("--save-settings", action="store_true", help="Persist provided transport overrides as new defaults")
     add_u.add_argument("--days", type=int, default=30, help="Account validity in days")
     add_u.add_argument("--ip-limit", type=int, default=2, help="Max concurrent IPs")
     add_u.add_argument("--quota-gb", type=int, default=0, help="Bandwidth quota in GB (0 = unlimited)")
@@ -66,8 +80,32 @@ def main():
 
     args = parser.parse_args()
 
+    if args.version:
+        print(f"vortex-x cli path: {os.path.abspath(__file__)}")
+        return
+
     if args.command == "menu":
         os.system(f"bash {LIB_PATH}/menu/menu.sh")
+    elif args.command == "sync":
+        import shutil
+        source = os.path.abspath(args.source)
+        target = os.path.abspath(args.target)
+        if not os.path.isdir(source):
+            print(f"[ERROR] Source directory not found: {source}")
+            return
+        os.makedirs(target, exist_ok=True)
+        shutil.copytree(source, target, dirs_exist_ok=True)
+        os.chmod(os.path.join(target, "cli", "vortex-x"), 0o755)
+        print(f"[OK] Synced runtime files: {source} -> {target}")
+        print(f"[INFO] Runtime CLI path: {os.path.join(target, 'cli', 'vortex-x')}")
+    elif args.command == "doctor":
+        import subprocess
+        cmd = [sys.executable, os.path.join(LIB_PATH, "monitoring", "health_check.py")]
+        if args.json:
+            cmd.append("--json")
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            sys.exit(result.returncode)
     elif args.command == "init":
         print(f"Initializing Vortex-x with domain: {args.domain}")
         
@@ -92,18 +130,30 @@ def main():
         xray.save()
         print("[OK] Xray configuration generated (WS + gRPC + Trojan + SS).")
 
-        # 3. Setup Nginx Virtual Host
-        nginx = NginxAdapter()
-        try:
-            nginx.generate_vhost(args.domain, 10001, 10002, 10004, 10005)
-            print("[OK] Nginx virtual host configured with full protocol support.")
-        except Exception as e:
-            print(f"[WARN] Nginx configuration failed: {e}")
-
-        # 4. Save domain to DB
+        # 3. Save domain to DB
         db = VortexDB()
         db.data["settings"]["domain"] = args.domain
         db.save()
+
+        # 4. Setup Nginx Virtual Host (follow configurable paths/service names)
+        settings = db.data.get("settings", {})
+        nginx = NginxAdapter()
+        try:
+            nginx.generate_vhost(
+                args.domain,
+                10001,
+                10002,
+                10004,
+                10005,
+                vless_path=settings.get("vless_path", "/vortex-vless"),
+                vmess_path=settings.get("vmess_path", "/vortex-vmess"),
+                trojan_path=settings.get("trojan_path", "/vortex-trojan"),
+                ss_path=settings.get("ss_path", "/vortex-ss"),
+                grpc_service=settings.get("vless_grpc_service", "vortex-grpc")
+            )
+            print("[OK] Nginx virtual host configured with full protocol support.")
+        except Exception as e:
+            print(f"[WARN] Nginx configuration failed: {e}")
 
         # 5. Restore users to config
         from user_management.account_manager import AccountManager
@@ -129,10 +179,14 @@ def main():
             from user_management.account_manager import AccountManager
             manager = AccountManager()
             db = VortexDB()
+            effective_connect_domain = args.connect_domain or args.bug_address
+            effective_sni = args.sni or args.bug_sni
+            effective_host = args.host or args.bug_host
+
             settings_updates = {
-                "connect_domain": args.connect_domain,
-                "sni": args.sni,
-                "host": args.host,
+                "connect_domain": effective_connect_domain,
+                "sni": effective_sni,
+                "host": effective_host,
                 "port": args.port,
                 "ntls_port": args.ntls_port,
                 "tls_insecure": args.tls_insecure if args.tls_insecure else None,
@@ -144,11 +198,48 @@ def main():
                 "ss_method": args.ss_method,
                 "ss_plugin_opts": args.ss_plugin_opts
             }
-            if any(value is not None for value in settings_updates.values()):
+
+            # If endpoint/address is overridden (e.g. to IP) but host/SNI are not,
+            # keep TLS/WS headers pinned to the configured domain for compatibility.
+            if effective_connect_domain and effective_sni is None:
+                settings_updates["sni"] = db.data.get("settings", {}).get("domain")
+            if effective_connect_domain and effective_host is None:
+                settings_updates["host"] = db.data.get("settings", {}).get("domain")
+            has_overrides = any(value is not None for value in settings_updates.values())
+            original_settings = dict(manager.db.data.get("settings", {}))
+
+            if has_overrides:
                 for key, value in settings_updates.items():
                     if value is not None:
-                        db.data["settings"][key] = value
-                db.save()
+                        manager.db.data["settings"][key] = value
+
+                if args.save_settings:
+                    db.data["settings"] = dict(manager.db.data.get("settings", {}))
+                    db.save()
+
+                    # Keep Nginx routes aligned with updated transport settings
+                    domain = db.data.get("settings", {}).get("domain")
+                    if domain:
+                        from protocol_adapters.nginx import NginxAdapter
+                        nginx = NginxAdapter()
+                        current = db.data.get("settings", {})
+                        try:
+                            nginx.generate_vhost(
+                                domain,
+                                10001,
+                                10002,
+                                10004,
+                                10005,
+                                vless_path=current.get("vless_path", "/vortex-vless"),
+                                vmess_path=current.get("vmess_path", "/vortex-vmess"),
+                                trojan_path=current.get("trojan_path", "/vortex-trojan"),
+                                ss_path=current.get("ss_path", "/vortex-ss"),
+                                grpc_service=current.get("vless_grpc_service", "vortex-grpc")
+                            )
+                        except Exception as e:
+                            print(f"[WARN] Failed to refresh Nginx routes after settings update: {e}")
+                else:
+                    print("[INFO] Using temporary transport overrides for this user/link only. Use --save-settings to persist.")
             try:
                 user = manager.create_user(
                     args.username,
@@ -181,6 +272,9 @@ def main():
                 print("-----------------------\n")
             except Exception as e:
                 print(f"[ERROR] {e}")
+            finally:
+                if has_overrides and not args.save_settings:
+                    manager.db.data["settings"] = original_settings
     else:
         parser.print_help()
 

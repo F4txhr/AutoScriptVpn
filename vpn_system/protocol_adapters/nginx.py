@@ -30,14 +30,26 @@ class NginxAdapter:
             except:
                 pass
 
-    def generate_vhost(self, domain: str, vless_port: int, vmess_port: int, trojan_port: int, ss_port: int = 0):
+    def generate_vhost(
+        self,
+        domain: str,
+        vless_port: int,
+        vmess_port: int,
+        trojan_port: int,
+        ss_port: int = 0,
+        vless_path: str = "/vortex-vless",
+        vmess_path: str = "/vortex-vmess",
+        trojan_path: str = "/vortex-trojan",
+        ss_path: str = "/vortex-ss",
+        grpc_service: str = "vortex-grpc"
+    ):
         self.cleanup_conflicts(domain)
         
         # Location for Shadowsocks if port provided
         ss_location = ""
         if ss_port > 0:
             ss_location = f"""
-    location /vortex-ss {{
+    location {ss_path} {{
         if ($http_upgrade != "websocket") {{ return 404; }}
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{ss_port};
@@ -49,12 +61,12 @@ class NginxAdapter:
 
         vhost_content = f"""
 server {{
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name {domain} _;
+    listen 80;
+    listen [::]:80;
+    server_name {domain};
 
     # NTLS WebSocket (no TLS termination)
-    location /vortex-vless {{
+    location {vless_path} {{
         if ($http_upgrade != "websocket") {{ return 404; }}
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{vless_port};
@@ -66,7 +78,7 @@ server {{
         proxy_set_header Host $host;
     }}
 
-    location /vortex-vmess {{
+    location {vmess_path} {{
         if ($http_upgrade != "websocket") {{ return 404; }}
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{vmess_port};
@@ -78,7 +90,7 @@ server {{
         proxy_set_header Host $host;
     }}
 
-    location /vortex-trojan {{
+    location {trojan_path} {{
         if ($http_upgrade != "websocket") {{ return 404; }}
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{trojan_port};
@@ -107,7 +119,7 @@ server {{
     ssl_ciphers HIGH:!aNULL:!MD5;
 
     # VLESS WebSocket
-    location /vortex-vless {{
+    location {vless_path} {{
         if ($http_upgrade != "websocket") {{ return 404; }}
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{vless_port};
@@ -120,7 +132,7 @@ server {{
     }}
 
     # VMESS WebSocket
-    location /vortex-vmess {{
+    location {vmess_path} {{
         if ($http_upgrade != "websocket") {{ return 404; }}
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{vmess_port};
@@ -133,7 +145,7 @@ server {{
     }}
 
     # Trojan WebSocket
-    location /vortex-trojan {{
+    location {trojan_path} {{
         if ($http_upgrade != "websocket") {{ return 404; }}
         proxy_redirect off;
         proxy_pass http://127.0.0.1:{trojan_port};
@@ -147,7 +159,7 @@ server {{
     {ss_location}
 
     # VLESS gRPC (Advanced Transport)
-    location /vortex-grpc {{
+    location /{grpc_service} {{
         if ($request_method != "POST") {{ return 404; }}
         client_max_body_size 0;
         grpc_read_timeout 1h;
