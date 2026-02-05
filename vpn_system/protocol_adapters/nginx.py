@@ -61,9 +61,9 @@ class NginxAdapter:
 
         vhost_content = f"""
 server {{
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name {domain} _;
+    listen 80;
+    listen [::]:80;
+    server_name {domain};
 
     # NTLS WebSocket (no TLS termination)
     location {vless_path} {{
