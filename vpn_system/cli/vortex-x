@@ -62,6 +62,7 @@ def main():
     add_u.add_argument("--vless-grpc-service", help="Override VLESS gRPC service name")
     add_u.add_argument("--ss-method", help="Override Shadowsocks method (default aes-256-gcm)")
     add_u.add_argument("--ss-plugin-opts", help="Override Shadowsocks plugin opts string")
+    add_u.add_argument("--save-settings", action="store_true", help="Persist provided transport overrides as new defaults")
     add_u.add_argument("--days", type=int, default=30, help="Account validity in days")
     add_u.add_argument("--ip-limit", type=int, default=2, help="Max concurrent IPs")
     add_u.add_argument("--quota-gb", type=int, default=0, help="Bandwidth quota in GB (0 = unlimited)")
@@ -204,33 +205,41 @@ def main():
                 settings_updates["sni"] = db.data.get("settings", {}).get("domain")
             if effective_connect_domain and effective_host is None:
                 settings_updates["host"] = db.data.get("settings", {}).get("domain")
-            if any(value is not None for value in settings_updates.values()):
+            has_overrides = any(value is not None for value in settings_updates.values())
+            original_settings = dict(manager.db.data.get("settings", {}))
+
+            if has_overrides:
                 for key, value in settings_updates.items():
                     if value is not None:
-                        db.data["settings"][key] = value
-                db.save()
+                        manager.db.data["settings"][key] = value
 
-                # Keep Nginx routes aligned with updated transport settings
-                domain = db.data.get("settings", {}).get("domain")
-                if domain:
-                    from protocol_adapters.nginx import NginxAdapter
-                    nginx = NginxAdapter()
-                    current = db.data.get("settings", {})
-                    try:
-                        nginx.generate_vhost(
-                            domain,
-                            10001,
-                            10002,
-                            10004,
-                            10005,
-                            vless_path=current.get("vless_path", "/vortex-vless"),
-                            vmess_path=current.get("vmess_path", "/vortex-vmess"),
-                            trojan_path=current.get("trojan_path", "/vortex-trojan"),
-                            ss_path=current.get("ss_path", "/vortex-ss"),
-                            grpc_service=current.get("vless_grpc_service", "vortex-grpc")
-                        )
-                    except Exception as e:
-                        print(f"[WARN] Failed to refresh Nginx routes after settings update: {e}")
+                if args.save_settings:
+                    db.data["settings"] = dict(manager.db.data.get("settings", {}))
+                    db.save()
+
+                    # Keep Nginx routes aligned with updated transport settings
+                    domain = db.data.get("settings", {}).get("domain")
+                    if domain:
+                        from protocol_adapters.nginx import NginxAdapter
+                        nginx = NginxAdapter()
+                        current = db.data.get("settings", {})
+                        try:
+                            nginx.generate_vhost(
+                                domain,
+                                10001,
+                                10002,
+                                10004,
+                                10005,
+                                vless_path=current.get("vless_path", "/vortex-vless"),
+                                vmess_path=current.get("vmess_path", "/vortex-vmess"),
+                                trojan_path=current.get("trojan_path", "/vortex-trojan"),
+                                ss_path=current.get("ss_path", "/vortex-ss"),
+                                grpc_service=current.get("vless_grpc_service", "vortex-grpc")
+                            )
+                        except Exception as e:
+                            print(f"[WARN] Failed to refresh Nginx routes after settings update: {e}")
+                else:
+                    print("[INFO] Using temporary transport overrides for this user/link only. Use --save-settings to persist.")
             try:
                 user = manager.create_user(
                     args.username,
@@ -263,6 +272,9 @@ def main():
                 print("-----------------------\n")
             except Exception as e:
                 print(f"[ERROR] {e}")
+            finally:
+                if has_overrides and not args.save_settings:
+                    manager.db.data["settings"] = original_settings
     else:
         parser.print_help()
 
