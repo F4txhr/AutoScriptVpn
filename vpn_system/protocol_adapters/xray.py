@@ -1,6 +1,8 @@
 import json
 import os
 import subprocess
+import pwd
+import grp
 from typing import Dict, Any, List
 
 class XrayAdapter:
@@ -108,10 +110,34 @@ class XrayAdapter:
         with open(self.config_path, 'w') as f:
             json.dump(self.config, f, indent=4)
         
-        # Ensure log directory and files exist
-        log_dir = "/var/log/xray"
-        os.makedirs(log_dir, exist_ok=True)
-        
+        # Ensure log directory/files and permissions for non-root xray user
+        log_cfg = self.config.get("log", {})
+        log_paths = [log_cfg.get("access"), log_cfg.get("error")]
+
+        try:
+            uid = pwd.getpwnam("vortex-x").pw_uid
+            gid = grp.getgrnam("vortex-x").gr_gid
+        except Exception:
+            uid = gid = None
+
+        for path in log_paths:
+            if not path:
+                continue
+            try:
+                abs_path = os.path.abspath(path)
+                log_dir = os.path.dirname(abs_path)
+                os.makedirs(log_dir, exist_ok=True)
+                if uid is not None and gid is not None:
+                    os.chown(log_dir, uid, gid)
+                os.chmod(log_dir, 0o750)
+                if not os.path.exists(abs_path):
+                    open(abs_path, "a", encoding="utf-8").close()
+                if uid is not None and gid is not None:
+                    os.chown(abs_path, uid, gid)
+                os.chmod(abs_path, 0o640)
+            except Exception:
+                pass
+
         # Permission handling is now centralized in harden_services.py
         # but we do a quick check here too
         try:

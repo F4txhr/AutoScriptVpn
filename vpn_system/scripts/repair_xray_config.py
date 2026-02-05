@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import json
 import os
+import pwd
+import grp
 import re
 import sys
 
@@ -55,6 +57,34 @@ def _build_grpc_vless_inbound(port: int, service_name: str) -> dict:
         "sniffing": {"enabled": True, "destOverride": ["http", "tls"]}
     }
 
+
+
+def _ensure_log_permissions(config: dict) -> None:
+    log_cfg = config.get("log", {}) if isinstance(config, dict) else {}
+    candidates = [log_cfg.get("access"), log_cfg.get("error")]
+    uid = gid = None
+    try:
+        uid = pwd.getpwnam("vortex-x").pw_uid
+        gid = grp.getgrnam("vortex-x").gr_gid
+    except Exception:
+        return
+
+    for log_path in candidates:
+        if not log_path:
+            continue
+        try:
+            log_file = os.path.abspath(log_path)
+            log_dir = os.path.dirname(log_file)
+            if log_dir:
+                os.makedirs(log_dir, exist_ok=True)
+                os.chown(log_dir, uid, gid)
+                os.chmod(log_dir, 0o750)
+            if not os.path.exists(log_file):
+                open(log_file, "a", encoding="utf-8").close()
+            os.chown(log_file, uid, gid)
+            os.chmod(log_file, 0o640)
+        except Exception:
+            continue
 
 
 def _verify_managed_inbounds(config: dict) -> list:
@@ -197,6 +227,9 @@ def main() -> None:
 
     with open(config_path, "r") as handle:
         written_config = json.load(handle)
+
+    _ensure_log_permissions(written_config)
+
     verification_errors = _verify_managed_inbounds(written_config)
     if verification_errors:
         raise SystemExit(
