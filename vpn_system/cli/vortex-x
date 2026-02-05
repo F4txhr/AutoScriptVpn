@@ -47,8 +47,11 @@ def main():
     add_u.add_argument("-u", "--username", required=True)
     add_u.add_argument("-p", "--protocol", choices=["vless", "vmess", "trojan", "shadowsocks", "wireguard", "openvpn"], required=True)
     add_u.add_argument("--connect-domain", help="Override connect domain/IP for generated links")
+    add_u.add_argument("--bug-address", help="Alias of --connect-domain (common VPN bug host usage)")
     add_u.add_argument("--sni", help="Override TLS SNI (server_name)")
+    add_u.add_argument("--bug-sni", help="Alias of --sni for bug configuration workflows")
     add_u.add_argument("--host", help="Override WS Host header")
+    add_u.add_argument("--bug-host", help="Alias of --host for bug configuration workflows")
     add_u.add_argument("--port", type=int, help="Override port for generated links")
     add_u.add_argument("--ntls-port", type=int, help="Override port for NTLS links (default 80)")
     add_u.add_argument("--tls-insecure", action="store_true", help="Allow insecure TLS (skip verification)")
@@ -175,10 +178,14 @@ def main():
             from user_management.account_manager import AccountManager
             manager = AccountManager()
             db = VortexDB()
+            effective_connect_domain = args.connect_domain or args.bug_address
+            effective_sni = args.sni or args.bug_sni
+            effective_host = args.host or args.bug_host
+
             settings_updates = {
-                "connect_domain": args.connect_domain,
-                "sni": args.sni,
-                "host": args.host,
+                "connect_domain": effective_connect_domain,
+                "sni": effective_sni,
+                "host": effective_host,
                 "port": args.port,
                 "ntls_port": args.ntls_port,
                 "tls_insecure": args.tls_insecure if args.tls_insecure else None,
@@ -193,9 +200,9 @@ def main():
 
             # If endpoint/address is overridden (e.g. to IP) but host/SNI are not,
             # keep TLS/WS headers pinned to the configured domain for compatibility.
-            if args.connect_domain and args.sni is None:
+            if effective_connect_domain and effective_sni is None:
                 settings_updates["sni"] = db.data.get("settings", {}).get("domain")
-            if args.connect_domain and args.host is None:
+            if effective_connect_domain and effective_host is None:
                 settings_updates["host"] = db.data.get("settings", {}).get("domain")
             if any(value is not None for value in settings_updates.values()):
                 for key, value in settings_updates.items():
