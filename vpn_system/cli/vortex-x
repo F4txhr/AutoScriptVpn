@@ -190,6 +190,13 @@ def main():
                 "ss_method": args.ss_method,
                 "ss_plugin_opts": args.ss_plugin_opts
             }
+
+            # If endpoint/address is overridden (e.g. to IP) but host/SNI are not,
+            # keep TLS/WS headers pinned to the configured domain for compatibility.
+            if args.connect_domain and args.sni is None:
+                settings_updates["sni"] = db.data.get("settings", {}).get("domain")
+            if args.connect_domain and args.host is None:
+                settings_updates["host"] = db.data.get("settings", {}).get("domain")
             if any(value is not None for value in settings_updates.values()):
                 for key, value in settings_updates.items():
                     if value is not None:
