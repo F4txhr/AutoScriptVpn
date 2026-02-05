@@ -55,6 +55,30 @@ def _build_grpc_vless_inbound(port: int, service_name: str) -> dict:
         "sniffing": {"enabled": True, "destOverride": ["http", "tls"]}
     }
 
+
+
+def _verify_managed_inbounds(config: dict) -> list:
+    expected = {
+        (10001, "vless"): "ws",
+        (10002, "vmess"): "ws",
+        (10003, "vless"): "grpc",
+        (10004, "trojan"): "ws",
+        (10005, "shadowsocks"): "ws",
+    }
+    actual = {}
+    for inbound in config.get("inbounds", []):
+        key = (inbound.get("port"), inbound.get("protocol"))
+        network = inbound.get("streamSettings", {}).get("network")
+        if key in expected:
+            actual[key] = network
+
+    errors = []
+    for key, want in expected.items():
+        got = actual.get(key)
+        if got != want:
+            errors.append(f"{key[1]}:{key[0]} expected={want} got={got}")
+    return errors
+
 def main() -> None:
     config_path = "/usr/local/etc/xray/config.json"
     if not os.path.exists(config_path):
@@ -170,6 +194,16 @@ def main() -> None:
     if changed:
         with open(config_path, "w") as handle:
             json.dump(adapter.config, handle, indent=4)
+
+    with open(config_path, "r") as handle:
+        written_config = json.load(handle)
+    verification_errors = _verify_managed_inbounds(written_config)
+    if verification_errors:
+        raise SystemExit(
+            "[ERROR] managed inbound verification failed: " + "; ".join(verification_errors)
+        )
+
+    print(f"[OK] repaired managed inbounds in {config_path}")
 
 
 if __name__ == "__main__":
