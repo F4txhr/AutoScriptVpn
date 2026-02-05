@@ -24,6 +24,37 @@ def normalize_shadowsocks_method(method: str) -> str:
     return method
 
 
+
+
+def _build_ws_inbound(protocol: str, port: int, tag: str, path: str, settings: dict) -> dict:
+    return {
+        "protocol": protocol,
+        "port": port,
+        "listen": "127.0.0.1",
+        "tag": tag,
+        "settings": settings,
+        "streamSettings": {
+            "network": "ws",
+            "wsSettings": {"path": path}
+        },
+        "sniffing": {"enabled": True, "destOverride": ["http", "tls"]}
+    }
+
+
+def _build_grpc_vless_inbound(port: int, service_name: str) -> dict:
+    return {
+        "protocol": "vless",
+        "port": port,
+        "listen": "127.0.0.1",
+        "tag": f"vless-grpc-{port}",
+        "settings": {"clients": [], "decryption": "none"},
+        "streamSettings": {
+            "network": "grpc",
+            "grpcSettings": {"serviceName": service_name}
+        },
+        "sniffing": {"enabled": True, "destOverride": ["http", "tls"]}
+    }
+
 def main() -> None:
     config_path = "/usr/local/etc/xray/config.json"
     if not os.path.exists(config_path):
@@ -80,11 +111,19 @@ def main() -> None:
         filtered_inbounds.append(inbound)
     adapter.config["inbounds"] = filtered_inbounds
 
-    adapter.generate_vless_ws(10001, vless_path)
-    adapter.generate_vmess_ws(10002, vmess_path)
-    adapter.generate_vless_grpc(10003, service_name=vless_grpc_service)
-    adapter.generate_trojan_ws(10004, trojan_path)
-    adapter.generate_ss_ws(10005, ss_path)
+    adapter.config["inbounds"].append(_build_ws_inbound(
+        "vless", 10001, "vless-ws-10001", vless_path, {"clients": [], "decryption": "none"}
+    ))
+    adapter.config["inbounds"].append(_build_ws_inbound(
+        "vmess", 10002, "vmess-ws-10002", vmess_path, {"clients": []}
+    ))
+    adapter.config["inbounds"].append(_build_grpc_vless_inbound(10003, vless_grpc_service))
+    adapter.config["inbounds"].append(_build_ws_inbound(
+        "trojan", 10004, "trojan-ws-10004", trojan_path, {"clients": []}
+    ))
+    adapter.config["inbounds"].append(_build_ws_inbound(
+        "shadowsocks", 10005, "ss-ws-10005", ss_path, {"clients": [], "method": default_ss_method, "network": "tcp,udp"}
+    ))
     changed = True
 
     for inbound in adapter.config.get("inbounds", []):
