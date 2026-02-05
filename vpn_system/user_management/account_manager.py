@@ -128,17 +128,18 @@ class AccountManager:
         if settings["ss_plugin_opts"]:
             plugin_opts = settings["ss_plugin_opts"]
         else:
-            plugin_parts = [
-                "v2ray-plugin",
-                "mode=websocket",
-                f"path={settings['ss_path']}"
-            ]
-            if settings["host"]:
-                plugin_parts.append(f"host={settings['host']}")
+            plugin_parts = ["v2ray-plugin"]
             if tls_mode == "tls":
                 plugin_parts.append("tls")
             elif tls_mode == "ntls":
                 plugin_parts.append("ntls")
+            plugin_parts.extend([
+                "mux=0",
+                "mode=websocket",
+                f"path={settings['ss_path']}"
+            ])
+            if settings["host"]:
+                plugin_parts.append(f"host={settings['host']}")
             plugin_opts = ";".join(plugin_parts)
         encoded_opts = urllib.parse.quote(plugin_opts)
         port = settings["port"] if tls_mode == "tls" else settings["ntls_port"]
