@@ -35,6 +35,10 @@ def main():
     sync_p.add_argument("--source", default="./vpn_system", help="Path to local vpn_system source directory")
     sync_p.add_argument("--target", default="/usr/local/lib/vortex-x", help="Runtime target directory")
 
+    # Doctor command
+    doctor_p = subparsers.add_parser("doctor", help="Run health checks for services/config/permissions")
+    doctor_p.add_argument("--json", action="store_true", help="Print doctor report as JSON")
+
     # User command
     user_p = subparsers.add_parser("user", help="Manage VPN users")
     user_sub = user_p.add_subparsers(dest="user_cmd")
@@ -90,6 +94,14 @@ def main():
         os.chmod(os.path.join(target, "cli", "vortex-x"), 0o755)
         print(f"[OK] Synced runtime files: {source} -> {target}")
         print(f"[INFO] Runtime CLI path: {os.path.join(target, 'cli', 'vortex-x')}")
+    elif args.command == "doctor":
+        import subprocess
+        cmd = [sys.executable, os.path.join(LIB_PATH, "monitoring", "health_check.py")]
+        if args.json:
+            cmd.append("--json")
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            sys.exit(result.returncode)
     elif args.command == "init":
         print(f"Initializing Vortex-x with domain: {args.domain}")
         
