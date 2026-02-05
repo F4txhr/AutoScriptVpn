@@ -20,6 +20,7 @@ def main():
         formatter_class=argparse.RawTextHelpFormatter
     )
     
+    parser.add_argument("--version", action="store_true", help="Print CLI source path")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
     # Init command
@@ -71,6 +72,10 @@ def main():
 
     args = parser.parse_args()
 
+    if args.version:
+        print(f"vortex-x cli path: {os.path.abspath(__file__)}")
+        return
+
     if args.command == "menu":
         os.system(f"bash {LIB_PATH}/menu/menu.sh")
     elif args.command == "sync":
@@ -84,6 +89,7 @@ def main():
         shutil.copytree(source, target, dirs_exist_ok=True)
         os.chmod(os.path.join(target, "cli", "vortex-x"), 0o755)
         print(f"[OK] Synced runtime files: {source} -> {target}")
+        print(f"[INFO] Runtime CLI path: {os.path.join(target, 'cli', 'vortex-x')}")
     elif args.command == "init":
         print(f"Initializing Vortex-x with domain: {args.domain}")
         

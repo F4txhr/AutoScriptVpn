@@ -219,10 +219,20 @@ main() {
     if [ "$1" = "--sync-runtime" ]; then
         log_info "Syncing runtime files only..."
         mkdir -p "$VORTEX_LIB"
-        cp -r ./vpn_system/* "$VORTEX_LIB/"
-        ln -sf "$VORTEX_LIB/cli/vortex-x" "$VORTEX_BIN"
-        chmod +x "$VORTEX_BIN"
-        ln -sf "$VORTEX_BIN" "/usr/bin/vortex-x"
+        if command -v rsync &>/dev/null; then
+            rsync -a --delete ./vpn_system/ "$VORTEX_LIB/"
+        else
+            cp -r ./vpn_system/* "$VORTEX_LIB/"
+        fi
+
+        install -m 755 "$VORTEX_LIB/cli/vortex-x" "$VORTEX_BIN"
+        install -m 755 "$VORTEX_BIN" "/usr/bin/vortex-x"
+
+        if [ -f "$VORTEX_LIB/scripts/repair_xray_config.py" ]; then
+            log_info "Running post-sync Xray repair..."
+            python3 "$VORTEX_LIB/scripts/repair_xray_config.py" || log_warn "Post-sync repair failed. Please check output above."
+        fi
+
         log_success "Runtime sync complete."
         exit 0
     fi
